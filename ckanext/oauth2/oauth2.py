@@ -191,33 +191,37 @@ class OAuth2Helper(object):
 
         return user.name
 
+
+
     def user_json(self, user_data):
-        user_data = user_data['user']  # Fix for Feide /userinfo
-        log.debug(f'user_data: {user_data}')
-        email = user_data[self.profile_api_mail_field]
-        user_name = user_data[self.profile_api_user_field]
+        # Extract user info from OAuth data
+        email = user_data.get(self.profile_api_mail_field) if self.profile_api_mail_field else None
+        user_name = user_data.get(self.profile_api_user_field) if self.profile_api_user_field else None
 
-        # In CKAN can exists more than one user associated with the same email
-        # Some providers, like Google and FIWARE only allows one account per email
+        if not user_name and not email:
+            raise ValueError("Username or email is required but was not provided by OAuth provider")
+
+        # Try to find existing user by username first, then by email
         user = None
-        users = model.User.by_email(email)
-        if len(users) == 1:
-            user = users[0]
+        if user_name:
+            users = model.User.by_name(user_name)
+            if len(users) == 1:
+                user = users[0]
 
-        # If the user does not exist, we have to create it...
-        if user is None:
-            user = model.User(email=email)
+        if not user and email:
+            users = model.User.by_email(email)
+            if len(users) == 1:
+                user = users[0]
 
-        # Now we update his/her user_name with the one provided by the OAuth2 service
-        # In the future, users will be obtained based on this field
-        user.name = user_name
+        # Create new user if not found
+        if not user:
+            user = model.User(name=user_name, email=email)
 
-        # Update fullname
-        if self.profile_api_fullname_field != "" and self.profile_api_fullname_field in user_data:
+        # Update optional fields if provided
+        if self.profile_api_fullname_field and self.profile_api_fullname_field in user_data:
             user.fullname = user_data[self.profile_api_fullname_field]
 
-        # Update sysadmin status
-        if self.profile_api_groupmembership_field != "" and self.profile_api_groupmembership_field in user_data:
+        if self.profile_api_groupmembership_field and self.profile_api_groupmembership_field in user_data:
             user.sysadmin = self.sysadmin_group_name in user_data[self.profile_api_groupmembership_field]
 
         return user
