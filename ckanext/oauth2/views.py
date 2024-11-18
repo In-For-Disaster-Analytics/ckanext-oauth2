@@ -11,8 +11,6 @@ import urllib.parse
 from ckanext.oauth2.oauth2 import OAuth2Helper
 
 log = logging.getLogger(__name__)
-
-log = logging.getLogger(__name__)
 # service_proxy = Blueprint("service_proxy", __name__)
 oauth2 = Blueprint("oauth2", __name__)
 
@@ -25,6 +23,13 @@ def _get_previous_page(default_page):
         came_from_url = toolkit.request.params.get('came_from', default_page)
 
     came_from_url_parsed = urllib.parse.urlparse(came_from_url)
+
+    # Ensure HTTPS scheme if the request is secure
+    if toolkit.request.environ.get('HTTPS') == 'on' or toolkit.request.scheme == 'https':
+        came_from_url = urllib.parse.urlunparse(
+            ('https',) + came_from_url_parsed[1:]
+        )
+        came_from_url_parsed = urllib.parse.urlparse(came_from_url)
 
     # Avoid redirecting users to external hosts
     if came_from_url_parsed.netloc != '' and came_from_url_parsed.netloc != toolkit.request.host:
@@ -41,32 +46,20 @@ def _get_previous_page(default_page):
 @oauth2.route('/user/login')
 def login():
     log.debug('login')
-
-    # Log in attemps are fired when the user is not logged in and they click
-    # on the log in button
-
-    # Get the page where the user was when the loggin attemp was fired
-    # When the user is not logged in, he/she should be redirected to the dashboard when
-    # the system cannot get the previous page
     came_from_url = _get_previous_page(constants.INITIAL_PAGE)
     return oauth2helper.challenge(came_from_url)
 
 @oauth2.route('/oauth2/callback')
 def callback():
-
     try:
         token = oauth2helper.get_token()
-
         user_name = oauth2helper.identify(token)
         response = oauth2helper.remember(user_name)
         log.debug(f'usr:{user_name}')
-
         oauth2helper.update_token(user_name, token)
         response = oauth2helper.redirect_from_callback(response)
     except Exception as e:
-
         session.save()
-
         # If the callback is called with an error, we must show the message
         error_description = toolkit.request.GET.get('error_description')
         if not error_description:
@@ -83,6 +76,7 @@ def callback():
         redirect_url = oauth2.get_came_from(toolkit.request.params.get('state'))
         redirect_url = '/' if redirect_url == constants.INITIAL_PAGE else redirect_url
         response.location = redirect_url
+
         helpers.flash_error(error_description)
         # make_response((content, 302, headers))
     return response
