@@ -87,11 +87,22 @@ class OAuth2Helper(object):
         elif self.scope == "":
             self.scope = None
 
+    def _compliance_fix(self, session):
+        """Apply compliance hooks to the OAuth2 session."""
+        def _fix_access_token(response):
+            data = response.json()
+            if 'result' in data:
+                response._content = json.dumps(data['result']['access_token']).encode('utf-8')
+            return response
+
+        session.register_compliance_hook('access_token_response', _fix_access_token)
+        session.register_compliance_hook('refresh_token_response', _fix_access_token)
+        return session
+
     def challenge(self, came_from_url):
-        # This function is called by the log in function when the user is not logged in
         state = generate_state(came_from_url)
-        # log.debug(f'redirect uri: {self.redirect_uri}')
         oauth = OAuth2Session(self.client_id, redirect_uri=self.redirect_uri, scope=self.scope, state=state)
+        oauth = self._compliance_fix(oauth)  # Apply compliance fixes
         auth_url, _ = oauth.authorization_url(self.authorization_endpoint)
         log.debug('Challenge: Redirecting challenge to page {0}'.format(auth_url))
         # CKAN 2.6 only supports bytes
@@ -99,6 +110,7 @@ class OAuth2Helper(object):
 
     def get_token(self):
         oauth = OAuth2Session(self.client_id, redirect_uri=self.redirect_uri, scope=self.scope)
+        oauth = self._compliance_fix(oauth)  # Apply compliance fixes
 
         # Just because of FIWARE Authentication
         headers = {
@@ -280,6 +292,7 @@ class OAuth2Helper(object):
         token = self.get_stored_token(user_name)
         if token:
             client = OAuth2Session(self.client_id, token=token, scope=self.scope)
+            client = self._compliance_fix(client)  # Apply compliance fixes
             try:
                 token = client.refresh_token(self.token_endpoint, client_secret=self.client_secret, client_id=self.client_id, verify=self.verify_https)
             except requests.exceptions.SSLError as e:
