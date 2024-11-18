@@ -91,7 +91,6 @@ class OAuth2Helper(object):
         """Apply compliance hooks to the OAuth2 session."""
         def _fix_access_token(response):
             data = response.json()
-            log.debug(f'data result: {data}')
             if 'result' in data:
 
                 response._content = json.dumps(data['result']['access_token']).encode('utf-8')
@@ -128,17 +127,11 @@ class OAuth2Helper(object):
 
         try:
             authorization_response = toolkit.request.url.replace("http:", "https:", 1)
-            log.debug(f'client_id: {self.client_id}')
-            log.debug(f'client_secret: {self.client_secret}')
-            log.debug(f'token_endpoint: {self.token_endpoint}')
-            log.debug(f'before replace: {toolkit.request.url}')
-            log.debug(f'authorization_response: {authorization_response}')
             token = oauth.fetch_token(self.token_endpoint,
                                       client_id=self.client_id,
                                       client_secret=self.client_secret,
                                       authorization_response=authorization_response,
                                       include_client_id=True)
-            log.debug(f'token: {token}')
         except requests.exceptions.SSLError as e:
             # TODO search a better way to detect invalid certificates
             if "verify failed" in six.text_type(e):
@@ -153,7 +146,6 @@ class OAuth2Helper(object):
     def identify(self, token):
         if self.jwt_enable:
             log.debug('jwt_enabled')
-            log.debug(f'token: {token}')
             access_token = token['access_token']
             user_data = jwt.decode(access_token, verify=False)
             user = self.user_json(user_data)
