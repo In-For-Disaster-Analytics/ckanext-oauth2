@@ -87,11 +87,23 @@ class OAuth2Helper(object):
         elif self.scope == "":
             self.scope = None
 
+    def _compliance_fix(self, session):
+        """Apply compliance hooks to the OAuth2 session."""
+        def _fix_access_token(response):
+            data = response.json()
+            if 'result' in data:
+
+                response._content = json.dumps(data['result']['access_token']).encode('utf-8')
+            return response
+
+        session.register_compliance_hook('access_token_response', _fix_access_token)
+        # session.register_compliance_hook('refresh_token_response', _fix_access_token)
+        return session
+
     def challenge(self, came_from_url):
-        # This function is called by the log in function when the user is not logged in
         state = generate_state(came_from_url)
-        # log.debug(f'redirect uri: {self.redirect_uri}')
         oauth = OAuth2Session(self.client_id, redirect_uri=self.redirect_uri, scope=self.scope, state=state)
+        oauth = self._compliance_fix(oauth)  # Apply compliance fixes
         auth_url, _ = oauth.authorization_url(self.authorization_endpoint)
         log.debug('Challenge: Redirecting challenge to page {0}'.format(auth_url))
         # CKAN 2.6 only supports bytes
@@ -99,6 +111,7 @@ class OAuth2Helper(object):
 
     def get_token(self):
         oauth = OAuth2Session(self.client_id, redirect_uri=self.redirect_uri, scope=self.scope)
+        oauth = self._compliance_fix(oauth)  # Apply compliance fixes
 
         # Just because of FIWARE Authentication
         headers = {
@@ -113,23 +126,27 @@ class OAuth2Helper(object):
             )
 
         try:
-            log.debug(f'authorization_response: {toolkit.request.url}')
+            authorization_response = toolkit.request.url.replace("http:", "https:", 1)
             token = oauth.fetch_token(self.token_endpoint,
                                       client_id=self.client_id,
                                       client_secret=self.client_secret,
-                                      authorization_response=toolkit.request.url.replace('http:', 'https:', 1))
+                                      authorization_response=authorization_response,
+                                      include_client_id=True)
         except requests.exceptions.SSLError as e:
             # TODO search a better way to detect invalid certificates
             if "verify failed" in six.text_type(e):
                 raise InsecureTransportError()
             else:
                 raise
+        except Exception as e:
+            log.debug(f'error: {e}')
+            raise
         return token
 
     def identify(self, token):
         if self.jwt_enable:
             log.debug('jwt_enabled')
-            access_token = bytes(token['access_token'])
+            access_token = token['access_token']
             user_data = jwt.decode(access_token, verify=False)
             user = self.user_json(user_data)
 
@@ -170,33 +187,41 @@ class OAuth2Helper(object):
 
         return user.name
 
+
+
     def user_json(self, user_data):
-        user_data = user_data['user']  # Fix for Feide /userinfo
-        log.debug(f'user_data: {user_data}')
-        email = user_data[self.profile_api_mail_field]
-        user_name = user_data[self.profile_api_user_field]
+        # Extract user info from OAuth data
+        email = user_data.get(self.profile_api_mail_field) if self.profile_api_mail_field else None
+        user_name = user_data.get(self.profile_api_user_field) if self.profile_api_user_field else None
 
-        # In CKAN can exists more than one user associated with the same email
-        # Some providers, like Google and FIWARE only allows one account per email
+        if not user_name and not email:
+            raise ValueError("Username or email is required but was not provided by OAuth provider")
+
+        # Try to find existing user by username first, then by email
         user = None
-        users = model.User.by_email(email)
-        if len(users) == 1:
-            user = users[0]
+        if user_name:
+            users = model.User.by_name(user_name)
+            if isinstance(users, model.User):
+                user = users
+            elif isinstance(users, list) and len(users) == 1:
+                user = users[0]
 
-        # If the user does not exist, we have to create it...
-        if user is None:
-            user = model.User(email=email)
+        if not user and email:
+            users = model.User.by_email(email)
+            if isinstance(users, model.User):
+                user = users
+            elif isinstance(users, list) and len(users) == 1:
+                user = users[0]
 
-        # Now we update his/her user_name with the one provided by the OAuth2 service
-        # In the future, users will be obtained based on this field
-        user.name = user_name
+        # Create new user if not found
+        if not user:
+            user = model.User(name=user_name, email=email)
 
-        # Update fullname
-        if self.profile_api_fullname_field != "" and self.profile_api_fullname_field in user_data:
+        # Update optional fields if provided
+        if self.profile_api_fullname_field and self.profile_api_fullname_field in user_data:
             user.fullname = user_data[self.profile_api_fullname_field]
 
-        # Update sysadmin status
-        if self.profile_api_groupmembership_field != "" and self.profile_api_groupmembership_field in user_data:
+        if self.profile_api_groupmembership_field and self.profile_api_groupmembership_field in user_data:
             user.sysadmin = self.sysadmin_group_name in user_data[self.profile_api_groupmembership_field]
 
         return user
@@ -242,7 +267,7 @@ class OAuth2Helper(object):
                 'access_token': user_token.access_token,
                 'refresh_token': user_token.refresh_token,
                 'expires_in': user_token.expires_in,
-                'token_type': user_token.token_type
+                'token_type': user_token.token_type if user_token.token_type else 'new_token_type'
             }
 
     def update_token(self, user_name, token):
@@ -256,7 +281,7 @@ class OAuth2Helper(object):
             user_token.user_name = user_name
         # Save the new token
         user_token.access_token = token['access_token']
-        user_token.token_type = token['token_type']
+        user_token.token_type = 'new_token_type'
         user_token.refresh_token = token.get('refresh_token')
         if 'expires_in' in token:
             user_token.expires_in = token['expires_in']
@@ -271,6 +296,7 @@ class OAuth2Helper(object):
         token = self.get_stored_token(user_name)
         if token:
             client = OAuth2Session(self.client_id, token=token, scope=self.scope)
+            client = self._compliance_fix(client)  # Apply compliance fixes
             try:
                 token = client.refresh_token(self.token_endpoint, client_secret=self.client_secret, client_id=self.client_id, verify=self.verify_https)
             except requests.exceptions.SSLError as e:

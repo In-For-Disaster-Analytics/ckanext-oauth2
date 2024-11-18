@@ -22,7 +22,7 @@ import re
 
 from setuptools import setup, find_packages
 
-__version__ = '0.7.0'
+__version__ = '0.7.1'
 __description__ = 'OAuth2 support for CKAN'
 
 
