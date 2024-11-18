@@ -98,7 +98,7 @@ class OAuth2Helper(object):
             return response
 
         session.register_compliance_hook('access_token_response', _fix_access_token)
-        session.register_compliance_hook('refresh_token_response', _fix_access_token)
+        # session.register_compliance_hook('refresh_token_response', _fix_access_token)
         return session
 
     def challenge(self, came_from_url):
