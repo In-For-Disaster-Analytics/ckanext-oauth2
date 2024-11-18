@@ -207,12 +207,12 @@ class OAuth2Helper(object):
         user = None
         if user_name:
             users = model.User.by_name(user_name)
-            if len(users) == 1:
+            if users and len(users) == 1:
                 user = users[0]
 
         if not user and email:
             users = model.User.by_email(email)
-            if len(users) == 1:
+            if users and len(users) == 1:
                 user = users[0]
 
         # Create new user if not found
