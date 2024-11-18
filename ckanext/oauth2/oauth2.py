@@ -136,6 +136,7 @@ class OAuth2Helper(object):
                                       client_secret=self.client_secret,
                                       authorization_response=authorization_response,
                                       include_client_id=True)
+            log.debug(f'token: {token}')
         except requests.exceptions.SSLError as e:
             # TODO search a better way to detect invalid certificates
             if "verify failed" in six.text_type(e):
@@ -150,6 +151,7 @@ class OAuth2Helper(object):
     def identify(self, token):
         if self.jwt_enable:
             log.debug('jwt_enabled')
+            log.debug(f'token: {token}')
             access_token = bytes(token['access_token'])
             user_data = jwt.decode(access_token, verify=False)
             user = self.user_json(user_data)
