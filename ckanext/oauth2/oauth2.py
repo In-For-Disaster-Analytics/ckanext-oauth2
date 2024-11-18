@@ -119,7 +119,7 @@ class OAuth2Helper(object):
             log.debug(f'token_endpoint: {self.token_endpoint}')
             log.debug(f'before replace: {toolkit.request.url}')
             log.debug(f'authorization_response: {authorization_response}')
-            token = oauth.fetch_token(token_url=self.token_endpoint,
+            token = oauth.fetch_token(self.token_endpoint,
                                       client_id=self.client_id,
                                       client_secret=self.client_secret,
                                       authorization_response=authorization_response,
@@ -132,6 +132,7 @@ class OAuth2Helper(object):
                 raise
         except Exception as e:
             log.debug(f'error: {e}')
+            raise
         return token
 
     def identify(self, token):
