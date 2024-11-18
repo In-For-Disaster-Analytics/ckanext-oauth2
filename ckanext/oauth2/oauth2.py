@@ -121,6 +121,7 @@ class OAuth2Helper(object):
             log.debug(f'authorization_response: {toolkit.request.url.replace("http:", "https:", 1)}')
             token = oauth.fetch_token(self.token_endpoint,
                                       client_id=self.client_id,
+                                      include_client_id=True,
                                       client_secret=self.client_secret,
                                       authorization_response=toolkit.request.url.replace('http:', 'https:', 1))
         except requests.exceptions.SSLError as e:
