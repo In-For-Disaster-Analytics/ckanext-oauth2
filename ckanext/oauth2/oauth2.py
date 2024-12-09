@@ -91,8 +91,8 @@ class OAuth2Helper(object):
         """Apply compliance hooks to the OAuth2 session."""
         def _fix_access_token(response):
             data = response.json()
+            log.debug(f"data: {data}")
             if 'result' in data:
-
                 response._content = json.dumps(data['result']['access_token']).encode('utf-8')
             return response
 
