@@ -160,7 +160,6 @@ class OAuth2Helper(object):
                 log.debug(f'profile response: {profile_response}')
             except Exception as e:
                 log.debug(f'error: {e}')
-                raise
 
         else:
             try:
