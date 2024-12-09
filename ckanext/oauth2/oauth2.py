@@ -143,12 +143,24 @@ class OAuth2Helper(object):
             raise
         return token
 
+    def get_profile_user(self, token):
+        oauth = OAuth2Session(self.client_id, token=token)
+        profile_response = oauth.get(self.profile_api_url)
+        log.debug(f'profile response_: {profile_response}')
+        return profile_response
+
     def identify(self, token):
         if self.jwt_enable:
             log.debug('jwt_enabled')
             access_token = token['access_token']
             user_data = jwt.decode(access_token, verify=False)
             user = self.user_json(user_data)
+            try:
+                profile_response = self.get_profile_user(token)
+                log.debug(f'profile response: {profile_response}')
+            except Exception as e:
+                log.debug(f'error: {e}')
+                raise
 
         else:
             try:
