@@ -179,7 +179,8 @@ class OAuth2Helper(object):
                 else:
                     profile_response.raise_for_status()
             else:
-                user_data = profile_response.json()
+                log.debug(f'profile_response: {profile_response}')
+                user_data = profile_response.json()['result']
                 user = self.user_json(user_data)
                 log.debug(f'user: {user}')
 
