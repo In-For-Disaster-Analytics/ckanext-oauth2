@@ -156,8 +156,11 @@ class OAuth2Helper(object):
                     profile_response = requests.get(self.profile_api_url + '?access_token=%s' % token['access_token'], verify=self.verify_https)
                     log.debug(f'profile response: {profile_response}')
                 else:
-                    oauth = OAuth2Session(self.client_id, token=token)
-                    profile_response = oauth.get(self.profile_api_url)
+                    log.debug(f'token: {token}')
+                    headers = {
+                        'X-Tapis-Token': token['access_token']
+                    }
+                    profile_response = requests.get(self.profile_api_url, headers=headers, verify=self.verify_https)
                     log.debug(f'profile response_: {profile_response}')
 
             except requests.exceptions.SSLError as e:
