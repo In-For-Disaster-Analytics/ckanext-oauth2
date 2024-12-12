@@ -75,6 +75,8 @@ class OAuth2Helper(object):
         self.rememberer_name = six.text_type(os.environ.get('CKAN_OAUTH2_REMEMBER_NAME', toolkit.config.get('ckan.oauth2.rememberer_name', 'auth_tkt'))).strip()
         self.profile_api_user_field = six.text_type(os.environ.get('CKAN_OAUTH2_PROFILE_API_USER_FIELD', toolkit.config.get('ckan.oauth2.profile_api_user_field', ''))).strip()
         self.profile_api_fullname_field = six.text_type(os.environ.get('CKAN_OAUTH2_PROFILE_API_FULLNAME_FIELD', toolkit.config.get('ckan.oauth2.profile_api_fullname_field', ''))).strip()
+        self.profile_api_firstname_field = six.text_type(os.environ.get('CKAN_OAUTH2_PROFILE_API_FIRSTNAME_FIELD', toolkit.config.get('ckan.oauth2.profile_api_firstname_field', ''))).strip()
+        self.profile_api_lastname_field = six.text_type(os.environ.get('CKAN_OAUTH2_PROFILE_API_LASTNAME_FIELD', toolkit.config.get('ckan.oauth2.profile_api_lastname_field', ''))).strip()
         self.profile_api_mail_field = six.text_type(os.environ.get('CKAN_OAUTH2_PROFILE_API_MAIL_FIELD', toolkit.config.get('ckan.oauth2.profile_api_mail_field', ''))).strip()
         self.profile_api_groupmembership_field = six.text_type(os.environ.get('CKAN_OAUTH2_PROFILE_API_GROUPMEMBERSHIP_FIELD', toolkit.config.get('ckan.oauth2.profile_api_groupmembership_field', ''))).strip()
         self.sysadmin_group_name = six.text_type(os.environ.get('CKAN_OAUTH2_SYSADMIN_GROUP_NAME', toolkit.config.get('ckan.oauth2.sysadmin_group_name', ''))).strip()
@@ -224,6 +226,12 @@ class OAuth2Helper(object):
         # Update optional fields if provided
         if self.profile_api_fullname_field and self.profile_api_fullname_field in user_data:
             user.fullname = user_data[self.profile_api_fullname_field]
+        elif self.profile_api_firstname_field and self.profile_api_lastname_field and self.profile_api_firstname_field in user_data and self.profile_api_lastname_field in user_data:
+            user.fullname = f"{user_data[self.profile_api_firstname_field]} {user_data[self.profile_api_lastname_field]}"
+        elif self.profile_api_firstname_field and self.profile_api_firstname_field in user_data:
+            user.fullname = user_data[self.profile_api_firstname_field]
+        elif self.profile_api_lastname_field and self.profile_api_lastname_field in user_data:
+            user.fullname = user_data[self.profile_api_lastname_field]
 
         if self.profile_api_groupmembership_field and self.profile_api_groupmembership_field in user_data:
             user.sysadmin = self.sysadmin_group_name in user_data[self.profile_api_groupmembership_field]
