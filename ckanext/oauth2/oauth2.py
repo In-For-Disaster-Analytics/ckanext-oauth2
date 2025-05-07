@@ -95,7 +95,8 @@ class OAuth2Helper(object):
             data = response.json()
             log.debug(f"data: {data}")
             if 'result' in data:
-                response._content = json.dumps(data['result']['access_token']).encode('utf-8')
+                # Just return the access token directly without additional encoding
+                response._content = json.dumps({'access_token': data['result']['access_token']}).encode('utf-8')
             return response
 
         session.register_compliance_hook('access_token_response', _fix_access_token)
