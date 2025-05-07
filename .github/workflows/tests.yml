@@ -44,9 +44,9 @@ jobs:
         image: solr:8.11.2
         ports:
           - 8983:8983
-        options: >-
-          --health-cmd "curl -f http://solr:8983/solr/admin/ping"
-          --health-interval 10s
+        # options: >-
+        #   --health-cmd "curl -f http://solr:8983/solr/admin/ping"
+        #   --health-interval 10s
 
     steps:
       - uses: actions/checkout@v3
