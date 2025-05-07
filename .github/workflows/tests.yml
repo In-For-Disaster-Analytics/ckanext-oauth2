@@ -65,6 +65,7 @@ jobs:
           git clone https://github.com/ckan/ckan
           cd ckan
           git checkout ckan-${{ matrix.ckan_version }}
+          pip install setuptools==57.4
           python setup.py develop
           sed -i "s|psycopg2==2.4.5|psycopg2==2.7.1|g" requirements.txt
           pip install -r requirements.txt
