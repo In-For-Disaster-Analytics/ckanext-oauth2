@@ -40,8 +40,21 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
+      solr:
+        image: solr:8.11.2
+        ports:
+          - 8983:8983
+        options: >-
+          --health-cmd "curl -f http://127.0.0.1:8983/solr/admin/ping"
+          --health-interval 10s
+
     steps:
       - uses: actions/checkout@v3
+
+      - uses: browser-actions/setup-geckodriver@latest
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - run: geckodriver --version
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -54,11 +67,6 @@ jobs:
           sudo apt-get install -y firefox
           # Add Apache Solr repository
           sudo apt-get install -y wget apt-transport-https
-          wget -qO - https://www.apache.org/dist/solr/KEYS | sudo apt-key add -
-          echo "deb https://dl.bintray.com/apache/solr/debian 8 main" | sudo tee /etc/apt/sources.list.d/solr.list
-          sudo apt-get update
-          sudo apt-get install -y solr
-          sudo systemctl start solr
 
       - name: Install Geckodriver
         run: |
