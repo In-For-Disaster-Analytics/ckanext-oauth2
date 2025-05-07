@@ -50,11 +50,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - uses: browser-actions/setup-geckodriver@latest
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - run: geckodriver --version
-
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
