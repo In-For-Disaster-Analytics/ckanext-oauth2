@@ -45,7 +45,7 @@ jobs:
         ports:
           - 8983:8983
         options: >-
-          --health-cmd "curl -f http://127.0.0.1:8983/solr/admin/ping"
+          --health-cmd "curl -f http://solr:8983/solr/admin/ping"
           --health-interval 10s
 
     steps:
