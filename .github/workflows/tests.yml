@@ -51,7 +51,14 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y solr-jetty firefox-esr
+          sudo apt-get install -y firefox
+          # Add Apache Solr repository
+          sudo apt-get install -y wget apt-transport-https
+          wget -qO - https://www.apache.org/dist/solr/KEYS | sudo apt-key add -
+          echo "deb https://dl.bintray.com/apache/solr/debian 8 main" | sudo tee /etc/apt/sources.list.d/solr.list
+          sudo apt-get update
+          sudo apt-get install -y solr
+          sudo systemctl start solr
 
       - name: Install Geckodriver
         run: |
