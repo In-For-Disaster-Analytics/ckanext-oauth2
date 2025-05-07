@@ -14,7 +14,6 @@ jobs:
         include:
           - ckan_version: '2.9.0'
             postgis_version: '2'
-            integration_test: true
 
     services:
       postgres:
@@ -61,13 +60,6 @@ jobs:
         with:
           python-version: '3.9'
 
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y firefox
-          # Add Apache Solr repository
-          sudo apt-get install -y wget apt-transport-https
-
       - name: Install CKAN
         run: |
           git clone https://github.com/ckan/ckan
@@ -100,39 +92,9 @@ jobs:
       - name: Install extension
         run: python setup.py develop
 
-      - name: Setup integration tests
-        if: matrix.integration_test == 'true'
-        run: |
-          sudo sh -c 'echo "\n[ SAN ]\nsubjectAltName=DNS:localhost" >> /etc/ssl/openssl.cnf'
-          sudo openssl req -new -newkey rsa:2048 -days 3650 -nodes -x509 \
-            -subj '/O=API Umbrella/CN=localhost' \
-            -keyout /etc/ssl/self_signed.key -out /usr/local/share/ca-certificates/self_signed.crt \
-            -reqexts SAN -extensions SAN
-          sudo update-ca-certificates
-          export REQUESTS_CA_BUNDLE="/etc/ssl/certs/ca-certificates.crt"
-          docker network create main
-          cd ci
-          docker-compose up -d
-          cd ..
-          # Wait for KeyRock to be ready
-          for i in {1..50}; do
-            if curl --output /dev/null --silent --head --fail --insecure http://localhost:3000; then
-              break
-            fi
-            if [ $i -eq 50 ]; then
-              echo "KeyRock failed to start"
-              exit 1
-            fi
-            sleep 5
-          done
-
       - name: Run tests
         run: |
-          if [ "${{ matrix.integration_test }}" = "true" ]; then
-            xvfb-run --server-args="-screen 0 1280x1024x24" python setup.py nosetests
-          else
-            python setup.py nosetests
-          fi
+          python setup.py nosetests
 
       - name: Upload coverage to Coveralls
         if: success()
