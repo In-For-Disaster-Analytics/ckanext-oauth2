@@ -12,7 +12,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - ckan_version: '2.9.0'
+          - ckan_version: '2.9.11'
             postgis_version: '2'
 
     services:
@@ -57,9 +57,13 @@ jobs:
 
       - name: Install CKAN
         run: |
+          pip3 install "webassets==0.12.1"
+          pip3 install -U pip
+          pip3 install -U setuptools>=70.0.0
+          pip3 install uwsgi
           git clone https://github.com/ckan/ckan
           cd ckan
-          git checkout ckan-${{ matrix.ckan_version }}
+          git checkout ckan-2.9.11
           python setup.py develop
           pip3 install "cython<3.0.0"
           pip3 install "pyyaml==5.4.1" --no-build-isolation
