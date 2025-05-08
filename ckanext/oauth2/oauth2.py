@@ -148,11 +148,12 @@ class OAuth2Helper(object):
 
     def identify(self, token):
         if self.jwt_enable:
-            log.debug('jwt_enabled')
-            log.debug(f'access token presented by the user: {token}')
-            access_token = token['access_token']
-            user_data = jwt.decode(access_token, verify=False)
-            user = self.user_json(user_data)
+            log.debug(f'jwt_enabled')
+            log.debug(f'token: {token}')
+            json_token_decoded = jwt.decode(token['access_token'], verify=False)
+            username, email = self.extract_user_data_from_jwt(json_token_decoded)
+            user = self.find_or_create_user(username, email)
+            return user.name
 
         else:
             try:
@@ -185,9 +186,10 @@ class OAuth2Helper(object):
             else:
                 log.debug(f'profile_response: {profile_response}')
                 user_data = profile_response.json()['result']
-                user = self.user_json(user_data)
-                log.debug(f'user: {user}')
+                username, email = self.extract_user_data_from_oauth_response(user_data)
+                user = self.find_or_create_user(username, email)
 
+        log.debug(f'user: {user}')
         # Save the user in the database
         model.Session.add(user)
         model.Session.commit()
@@ -196,47 +198,66 @@ class OAuth2Helper(object):
         return user.name
 
 
+    def extract_user_data_from_jwt(self, json_token_decoded):
+        log.debug(f'json_token_decoded: {json_token_decoded}')
+        email = json_token_decoded.get('tapis/email')
+        user_name = json_token_decoded.get('tapis/username')
 
-    def user_json(self, user_data):
-        # Extract user info from OAuth data
+        if not user_name and not email:
+            raise ValueError("Username or email is required but was not provided by OAuth provider")
+        return email, user_name
+
+    def extract_user_data_from_oauth_response(self, user_data):
+        log.debug(f'user_data: {user_data}')
         email = user_data.get(self.profile_api_mail_field) if self.profile_api_mail_field else None
         user_name = user_data.get(self.profile_api_user_field) if self.profile_api_user_field else None
 
         if not user_name and not email:
             raise ValueError("Username or email is required but was not provided by OAuth provider")
+        return email, user_name
 
+
+    def find_or_create_user(self, username: str | None, email: str | None) -> model.User | None:
         # Try to find existing user by username first, then by email
-        user = None
-        if user_name:
-            users = model.User.by_name(user_name)
-            if isinstance(users, model.User):
-                user = users
-            elif isinstance(users, list) and len(users) == 1:
-                user = users[0]
-
-        if not user and email:
-            users = model.User.by_email(email)
-            if isinstance(users, model.User):
-                user = users
-            elif isinstance(users, list) and len(users) == 1:
-                user = users[0]
-
+        user = self.find_user(username, email)
         # Create new user if not found
         if not user:
-            user = model.User(name=user_name, email=email)
+            user = model.User(name=username, email=email)
+        return user
+
+    def find_user(self, username: str | None, email: str | None) -> model.User | None:
+        if username:
+            users = model.User.by_name(username)
+            if isinstance(users, model.User):
+                return users
+            elif isinstance(users, list) and len(users) == 1:
+                return users[0]
+
+        if email:
+            users = model.User.by_email(email)
+            if isinstance(users, model.User):
+                return users
+            elif isinstance(users, list) and len(users) == 1:
+                return users[0]
+        return None
+
+    def user_json(self, user_profile):
+        # Extract user info from OAuth data
+        email, user_name = self.extract_user_data_from_oauth_response(user_profile)
+        user = self.find_or_create_user(user_name, email)
 
         # Update optional fields if provided
-        if self.profile_api_fullname_field and self.profile_api_fullname_field in user_data:
-            user.fullname = user_data[self.profile_api_fullname_field]
-        elif self.profile_api_firstname_field and self.profile_api_lastname_field and self.profile_api_firstname_field in user_data and self.profile_api_lastname_field in user_data:
-            user.fullname = f"{user_data[self.profile_api_firstname_field]} {user_data[self.profile_api_lastname_field]}"
-        elif self.profile_api_firstname_field and self.profile_api_firstname_field in user_data:
-            user.fullname = user_data[self.profile_api_firstname_field]
-        elif self.profile_api_lastname_field and self.profile_api_lastname_field in user_data:
-            user.fullname = user_data[self.profile_api_lastname_field]
+        if self.profile_api_fullname_field and self.profile_api_fullname_field in user_profile:
+            user.fullname = user_profile[self.profile_api_fullname_field]
+        elif self.profile_api_firstname_field and self.profile_api_lastname_field and self.profile_api_firstname_field in user_profile and self.profile_api_lastname_field in user_profile:
+            user.fullname = f"{user_profile[self.profile_api_firstname_field]} {user_profile[self.profile_api_lastname_field]}"
+        elif self.profile_api_firstname_field and self.profile_api_firstname_field in user_profile:
+            user.fullname = user_profile[self.profile_api_firstname_field]
+        elif self.profile_api_lastname_field and self.profile_api_lastname_field in user_profile:
+            user.fullname = user_profile[self.profile_api_lastname_field]
 
-        if self.profile_api_groupmembership_field and self.profile_api_groupmembership_field in user_data:
-            user.sysadmin = self.sysadmin_group_name in user_data[self.profile_api_groupmembership_field]
+        if self.profile_api_groupmembership_field and self.profile_api_groupmembership_field in user_profile:
+            user.sysadmin = self.sysadmin_group_name in user_profile[self.profile_api_groupmembership_field]
 
         return user
 
