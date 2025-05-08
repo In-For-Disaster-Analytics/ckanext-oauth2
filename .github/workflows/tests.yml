@@ -62,13 +62,14 @@ jobs:
           pip3 install -U setuptools>=70.0.0
           pip3 install uwsgi
           git clone https://github.com/ckan/ckan
-          git checkout ckan-2.9.11
+          pip3 install -e git+https://github.com/ckan/ckan.git@ckan-2.9.11#egg=ckan
           cd ckan
+          git checkout ckan-2.9.11
           pip3 install "cython<3.0.0"
           pip3 install "pyyaml==5.4.1" --no-build-isolation
           pip3 install -r requirement-setuptools.txt
           pip3 install --no-binary markdown -r requirements.txt
-          pip3 install -e git+https://github.com/okfn/ckanext-envvars.git#egg=ckanext-envvars
+          pip3 install -r dev-requirements.txt
           cd ..
 
       - name: Setup PostgreSQL
@@ -78,6 +79,8 @@ jobs:
           PGPASSWORD=postgres psql -U postgres -h localhost -c "CREATE DATABASE ckan_test WITH OWNER ckan_default;"
           PGPASSWORD=postgres psql -U postgres -h localhost -c "CREATE DATABASE datastore_test WITH OWNER ckan_default;"
           cd ckan
+          pip3 install pyutilib
+          pip3 install flask_babel
           ckan db init -c test-core.ini
           cd ..
 
