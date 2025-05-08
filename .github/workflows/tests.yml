@@ -75,7 +75,7 @@ jobs:
           PGPASSWORD=postgres psql -U postgres -h localhost -c "CREATE DATABASE ckan_test WITH OWNER ckan_default;"
           PGPASSWORD=postgres psql -U postgres -h localhost -c "CREATE DATABASE datastore_test WITH OWNER ckan_default;"
           cd ckan
-          pip3 install pyutilib
+          pip3 install -r https://raw.githubusercontent.com/ckan/ckan/ckan-2.9.11/dev-requirements.txt
           ckan db init -c test-core.ini
           cd ..
 
