@@ -87,7 +87,7 @@ setup(
     entry_points={
         'ckan.plugins': [
             'oauth2 = ckanext.oauth2.plugin:OAuth2Plugin',
-        ]
+        ],
         'nose.plugins': [
             'pylons = pylons.test:PylonsPlugin'
         ]
