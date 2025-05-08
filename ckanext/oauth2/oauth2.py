@@ -208,15 +208,17 @@ class OAuth2Helper(object):
             token_decoded = jwt.decode(access_token, verify=False)
             email = token_decoded.get('tapis/email')
             username = token_decoded.get('tapis/username')
-            user = self.find_user(username, email)
-            if not user:
+            try:
+                user = self.find_user(username, email)
+            except ValueError:
                 profile_response = self.query_profile_api_legacy(token) if self.legacy_idm else self.query_profile_api_default(token)
                 user = self.create_user_object(profile_response.json()['result'])
         else:
             profile_response = self.query_profile_api_legacy(token) if self.legacy_idm else self.query_profile_api_default(token)
             user_profile = profile_response.json()['result']
-            user = self.find_user(username, email)
-            if not user:
+            try:
+                user = self.find_user(username, email)
+            except ValueError:
                 user = self.create_user_object(user_profile)
         # Save the user in the database
         model.Session.add(user)
