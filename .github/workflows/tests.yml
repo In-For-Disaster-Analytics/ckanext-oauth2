@@ -1,0 +1,94 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - ckan_version: '2.9.11'
+            postgis_version: '2'
+
+    services:
+      postgres:
+        image: postgres:12
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      solr:
+        image: solr:8.11.2
+        ports:
+          - 8983:8983
+        # options: >-
+        #   --health-cmd "curl -f http://solr:8983/solr/admin/ping"
+        #   --health-interval 10s
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install CKAN
+        run: |
+          pip3 install -U pip
+          pip3 install -U setuptools
+          pip3 install -e git+https://github.com/ckan/ckan.git@ckan-2.9.11#egg=ckan
+          git clone https://github.com/ckan/ckan
+          cd ckan
+          git checkout ckan-2.9.11
+          pip3 install "cython<3.0.0"
+          pip3 install "pyyaml==5.4.1" --no-build-isolation
+          pip3 install -r requirement-setuptools.txt
+          pip3 install wheel
+          pip3 install --no-binary markdown -r requirements.txt
+          cd ..
+
+      - name: Setup PostgreSQL
+        run: |
+          PGPASSWORD=postgres psql -U postgres -h localhost -c "CREATE USER ckan_default WITH PASSWORD 'pass';"
+          PGPASSWORD=postgres psql -U postgres -h localhost -c "CREATE USER datastore_default WITH PASSWORD 'pass';"
+          PGPASSWORD=postgres psql -U postgres -h localhost -c "CREATE DATABASE ckan_test WITH OWNER ckan_default;"
+          PGPASSWORD=postgres psql -U postgres -h localhost -c "CREATE DATABASE datastore_test WITH OWNER ckan_default;"
+          cd ckan
+          ckan -c test-core.ini db init
+          cd ..
+
+      - name: Install extension
+        run: python setup.py develop
+
+      # - name: Run tests
+      #   run: |
+      #     python setup.py nosetests
+
+      # - name: Upload coverage to Coveralls
+      #   if: success()
+      #   uses: coverallsapp/github-action@v2
+      #   with:
+      #     github-token: ${{ secrets.GITHUB_TOKEN }}
