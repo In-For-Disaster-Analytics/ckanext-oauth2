@@ -27,7 +27,7 @@ import json
 import logging
 from six.moves.urllib.parse import urljoin
 import os
-
+from typing import Optional
 from base64 import b64encode, b64decode
 from ckan.plugins import toolkit
 from oauthlib.oauth2 import InsecureTransportError
@@ -95,6 +95,7 @@ class OAuth2Helper(object):
             data = response.json()
             log.debug(f"data: {data}")
             if 'result' in data:
+                # Just return the access token directly without additional encoding
                 response._content = json.dumps(data['result']['access_token']).encode('utf-8')
             return response
 
@@ -145,98 +146,86 @@ class OAuth2Helper(object):
             raise
         return token
 
+    def query_profile_api_legacy(self, token):
+        try:
+            profile_response = requests.get(self.profile_api_url + '?access_token=%s' % token['access_token'], verify=self.verify_https)
+            if not profile_response.ok:
+                raise ValueError(profile_response.json().get('error_description'))
+            return profile_response
+        except Exception as e:
+            log.error(f'error: {e}')
+            raise
+
+    def query_profile_api_default(self, token):
+        try:
+            headers = {
+                'X-Tapis-Token': token['access_token']
+            }
+            profile_response = requests.get(self.profile_api_url, headers=headers, verify=self.verify_https)
+            if not profile_response.ok:
+                raise ValueError(profile_response.json().get('error_description'))
+            return profile_response
+        except Exception as e:
+            log.error(f'error: {e}')
+            raise
+
+    def find_user(self, username: Optional[str], email: Optional[str]) -> Optional[model.User]:
+        if username:
+            users = model.User.by_name(username)
+            if isinstance(users, model.User):
+                return users
+            elif isinstance(users, list) and len(users) == 1:
+                return users[0]
+        if email:
+            users = model.User.by_email(email)
+            if isinstance(users, model.User):
+                return users
+            elif isinstance(users, list) and len(users) == 1:
+                return users[0]
+        raise ValueError("User not found")
+
+    def create_user_object(self, user_profile) -> model.User:
+        email = user_profile.get(self.profile_api_mail_field) if self.profile_api_mail_field else None
+        username = user_profile.get(self.profile_api_user_field) if self.profile_api_user_field else None
+        if not username and not email:
+            raise ValueError("Username or email is required but was not provided by OAuth provider")
+        user = model.User(name=username, email=email)
+        if self.profile_api_fullname_field and self.profile_api_fullname_field in user_profile:
+            user.fullname = user_profile[self.profile_api_fullname_field]
+        elif self.profile_api_firstname_field and self.profile_api_lastname_field and self.profile_api_firstname_field in user_profile and self.profile_api_lastname_field in user_profile:
+            user.fullname = f"{user_profile[self.profile_api_firstname_field]} {user_profile[self.profile_api_lastname_field]}"
+        elif self.profile_api_firstname_field and self.profile_api_firstname_field in user_profile:
+            user.fullname = user_profile[self.profile_api_firstname_field]
+        elif self.profile_api_lastname_field and self.profile_api_lastname_field in user_profile:
+            user.fullname = user_profile[self.profile_api_lastname_field]
+        if self.profile_api_groupmembership_field and self.profile_api_groupmembership_field in user_profile:
+            user.sysadmin = self.sysadmin_group_name in user_profile[self.profile_api_groupmembership_field]
+        return user
+
     def identify(self, token):
         if self.jwt_enable:
-            log.debug('jwt_enabled')
             access_token = token['access_token']
-            user_data = jwt.decode(access_token, verify=False)
-            user = self.user_json(user_data)
-
-        else:
+            token_decoded = jwt.decode(access_token, verify=False)
+            email = token_decoded.get('tapis/email')
+            username = token_decoded.get('tapis/username')
             try:
-                if self.legacy_idm:
-                    profile_response = requests.get(self.profile_api_url + '?access_token=%s' % token['access_token'], verify=self.verify_https)
-                    log.debug(f'profile response: {profile_response}')
-                else:
-                    log.debug(f'token: {token}')
-                    headers = {
-                        'X-Tapis-Token': token['access_token']
-                    }
-                    profile_response = requests.get(self.profile_api_url, headers=headers, verify=self.verify_https)
-                    log.debug(f'profile response_: {profile_response}')
-
-            except requests.exceptions.SSLError as e:
-                log.debug('exception identify oauth2')
-                # TODO search a better way to detect invalid certificates
-                if "verify failed" in six.text_type(e):
-                    raise InsecureTransportError()
-                else:
-                    raise
-
-            # Token can be invalid
-            if not profile_response.ok:
-                error = profile_response.json()
-                if error.get('error', '') == 'invalid_token':
-                    raise ValueError(error.get('error_description'))
-                else:
-                    profile_response.raise_for_status()
-            else:
-                log.debug(f'profile_response: {profile_response}')
-                user_data = profile_response.json()['result']
-                user = self.user_json(user_data)
-                log.debug(f'user: {user}')
-
+                user = self.find_user(username, email)
+            except ValueError:
+                profile_response = self.query_profile_api_legacy(token) if self.legacy_idm else self.query_profile_api_default(token)
+                user = self.create_user_object(profile_response.json()['result'])
+        else:
+            profile_response = self.query_profile_api_legacy(token) if self.legacy_idm else self.query_profile_api_default(token)
+            user_profile = profile_response.json()['result']
+            try:
+                user = self.find_user(user_profile.get(self.profile_api_user_field), user_profile.get(self.profile_api_mail_field))
+            except ValueError:
+                user = self.create_user_object(user_profile)
         # Save the user in the database
         model.Session.add(user)
         model.Session.commit()
         model.Session.remove()
-
         return user.name
 
-
-
-    def user_json(self, user_data):
-        # Extract user info from OAuth data
-        email = user_data.get(self.profile_api_mail_field) if self.profile_api_mail_field else None
-        user_name = user_data.get(self.profile_api_user_field) if self.profile_api_user_field else None
-
-        if not user_name and not email:
-            raise ValueError("Username or email is required but was not provided by OAuth provider")
-
-        # Try to find existing user by username first, then by email
-        user = None
-        if user_name:
-            users = model.User.by_name(user_name)
-            if isinstance(users, model.User):
-                user = users
-            elif isinstance(users, list) and len(users) == 1:
-                user = users[0]
-
-        if not user and email:
-            users = model.User.by_email(email)
-            if isinstance(users, model.User):
-                user = users
-            elif isinstance(users, list) and len(users) == 1:
-                user = users[0]
-
-        # Create new user if not found
-        if not user:
-            user = model.User(name=user_name, email=email)
-
-        # Update optional fields if provided
-        if self.profile_api_fullname_field and self.profile_api_fullname_field in user_data:
-            user.fullname = user_data[self.profile_api_fullname_field]
-        elif self.profile_api_firstname_field and self.profile_api_lastname_field and self.profile_api_firstname_field in user_data and self.profile_api_lastname_field in user_data:
-            user.fullname = f"{user_data[self.profile_api_firstname_field]} {user_data[self.profile_api_lastname_field]}"
-        elif self.profile_api_firstname_field and self.profile_api_firstname_field in user_data:
-            user.fullname = user_data[self.profile_api_firstname_field]
-        elif self.profile_api_lastname_field and self.profile_api_lastname_field in user_data:
-            user.fullname = user_data[self.profile_api_lastname_field]
-
-        if self.profile_api_groupmembership_field and self.profile_api_groupmembership_field in user_data:
-            user.sysadmin = self.sysadmin_group_name in user_data[self.profile_api_groupmembership_field]
-
-        return user
 
     def _get_rememberer(self, environ):
         plugins = environ.get('repoze.who.plugins', {})
