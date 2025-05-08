@@ -65,6 +65,7 @@ jobs:
           pip3 install "cython<3.0.0"
           pip3 install "pyyaml==5.4.1" --no-build-isolation
           pip3 install -r requirement-setuptools.txt
+          pip3 install wheel
           pip3 install --no-binary markdown -r requirements.txt
 
       # - name: Setup PostgreSQL
