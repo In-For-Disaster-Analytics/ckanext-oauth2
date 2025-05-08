@@ -146,19 +146,6 @@ class OAuth2Helper(object):
             raise
         return token
 
-    def query_profile_api(self, token):
-        if self.legacy_idm:
-            profile_response = requests.get(self.profile_api_url + '?access_token=%s' % token['access_token'], verify=self.verify_https)
-            log.debug(f'profile response: {profile_response}')
-        else:
-            log.debug(f'token: {token}')
-            headers = {
-                'X-Tapis-Token': token['access_token']
-            }
-            profile_response = requests.get(self.profile_api_url, headers=headers, verify=self.verify_https)
-            log.debug(f'profile response_: {profile_response}')
-        return profile_response
-
     def query_profile_api_legacy(self, token):
         try:
             profile_response = requests.get(self.profile_api_url + '?access_token=%s' % token['access_token'], verify=self.verify_https)
@@ -169,7 +156,7 @@ class OAuth2Helper(object):
             log.error(f'error: {e}')
             raise
 
-    def query_profile_api_new(self, token):
+    def query_profile_api_default(self, token):
         try:
             headers = {
                 'X-Tapis-Token': token['access_token']
@@ -182,51 +169,6 @@ class OAuth2Helper(object):
             log.error(f'error: {e}')
             raise
 
-    def identify(self, token):
-        if self.legacy_idm:
-            profile_response = self.query_profile_api_legacy(token)
-        else:
-            profile_response = self.query_profile_api_new(token)
-
-        user_data = profile_response.json()['result']
-        username, email = self.extract_user_data_from_oauth_response(user_data)
-        user = self.find_or_create_user(username, email)
-
-        # Save the user in the database
-        model.Session.add(user)
-        model.Session.commit()
-        model.Session.remove()
-
-        return user.name
-
-
-    def extract_user_data_from_jwt(self, json_token_decoded):
-        log.debug(f'json_token_decoded: {json_token_decoded}')
-        email = json_token_decoded.get('tapis/email')
-        user_name = json_token_decoded.get('tapis/username')
-
-        if not user_name and not email:
-            raise ValueError("Username or email is required but was not provided by OAuth provider")
-        return email, user_name
-
-    def extract_user_data_from_oauth_response(self, user_data):
-        log.debug(f'user_data: {user_data}')
-        email = user_data.get(self.profile_api_mail_field) if self.profile_api_mail_field else None
-        user_name = user_data.get(self.profile_api_user_field) if self.profile_api_user_field else None
-
-        if not user_name and not email:
-            raise ValueError("Username or email is required but was not provided by OAuth provider")
-        return email, user_name
-
-
-    def find_or_create_user(self, username: Optional[str], email: Optional[str]) -> Optional[model.User]:
-        # Try to find existing user by username first, then by email
-        user = self.find_user(username, email)
-        # Create new user if not found
-        if not user:
-            user = model.User(name=username, email=email)
-        return user
-
     def find_user(self, username: Optional[str], email: Optional[str]) -> Optional[model.User]:
         if username:
             users = model.User.by_name(username)
@@ -234,21 +176,20 @@ class OAuth2Helper(object):
                 return users
             elif isinstance(users, list) and len(users) == 1:
                 return users[0]
-
         if email:
             users = model.User.by_email(email)
             if isinstance(users, model.User):
                 return users
             elif isinstance(users, list) and len(users) == 1:
                 return users[0]
-        return None
+        raise ValueError("User not found")
 
-    def user_json(self, user_profile):
-        # Extract user info from OAuth data
-        email, user_name = self.extract_user_data_from_oauth_response(user_profile)
-        user = self.find_or_create_user(user_name, email)
-
-        # Update optional fields if provided
+    def create_user_object(self, user_profile) -> model.User:
+        email = user_profile.get(self.profile_api_mail_field) if self.profile_api_mail_field else None
+        username = user_profile.get(self.profile_api_user_field) if self.profile_api_user_field else None
+        if not username and not email:
+            raise ValueError("Username or email is required but was not provided by OAuth provider")
+        user = model.User(name=username, email=email)
         if self.profile_api_fullname_field and self.profile_api_fullname_field in user_profile:
             user.fullname = user_profile[self.profile_api_fullname_field]
         elif self.profile_api_firstname_field and self.profile_api_lastname_field and self.profile_api_firstname_field in user_profile and self.profile_api_lastname_field in user_profile:
@@ -257,11 +198,32 @@ class OAuth2Helper(object):
             user.fullname = user_profile[self.profile_api_firstname_field]
         elif self.profile_api_lastname_field and self.profile_api_lastname_field in user_profile:
             user.fullname = user_profile[self.profile_api_lastname_field]
-
         if self.profile_api_groupmembership_field and self.profile_api_groupmembership_field in user_profile:
             user.sysadmin = self.sysadmin_group_name in user_profile[self.profile_api_groupmembership_field]
-
         return user
+
+    def identify(self, token):
+        if self.jwt_enable:
+            access_token = token['access_token']
+            token_decoded = jwt.decode(access_token, verify=False)
+            email = token_decoded.get('tapis/email')
+            username = token_decoded.get('tapis/username')
+            user = self.find_user(username, email)
+            if not user:
+                profile_response = self.query_profile_api_legacy(token) if self.legacy_idm else self.query_profile_api_default(token)
+                user = self.create_user_object(profile_response.json()['result'])
+        else:
+            profile_response = self.query_profile_api_legacy(token) if self.legacy_idm else self.query_profile_api_default(token)
+            user_profile = profile_response.json()['result']
+            user = self.find_user(username, email)
+            if not user:
+                user = self.create_user_object(user_profile)
+        # Save the user in the database
+        model.Session.add(user)
+        model.Session.commit()
+        model.Session.remove()
+        return user.name
+
 
     def _get_rememberer(self, environ):
         plugins = environ.get('repoze.who.plugins', {})
