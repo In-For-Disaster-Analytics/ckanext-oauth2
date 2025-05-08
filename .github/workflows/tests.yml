@@ -80,8 +80,8 @@ jobs:
           ckan -c test-core.ini db init
           cd ..
 
-      # - name: Install extension
-      #   run: python setup.py develop
+      - name: Install extension
+        run: python setup.py develop
 
       # - name: Run tests
       #   run: |
