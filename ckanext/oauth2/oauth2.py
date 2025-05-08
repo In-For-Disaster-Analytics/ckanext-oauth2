@@ -96,7 +96,7 @@ class OAuth2Helper(object):
             log.debug(f"data: {data}")
             if 'result' in data:
                 # Just return the access token directly without additional encoding
-                response._content = json.dumps({'access_token': data['result']['access_token']}).encode('utf-8')
+                response._content = json.dumps(data['result']['access_token']).encode('utf-8')
             return response
 
         session.register_compliance_hook('access_token_response', _fix_access_token)
@@ -149,6 +149,7 @@ class OAuth2Helper(object):
     def identify(self, token):
         if self.jwt_enable:
             log.debug('jwt_enabled')
+            log.debug(f'access token presented by the user: {token}')
             access_token = token['access_token']
             user_data = jwt.decode(access_token, verify=False)
             user = self.user_json(user_data)
