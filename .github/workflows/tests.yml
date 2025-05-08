@@ -77,7 +77,7 @@ jobs:
           cd ckan
           pip3 install pyutilib
           pip3 install flask_babel
-
+          pip3 install simplejson
           ckan db init -c test-core.ini
           cd ..
 
