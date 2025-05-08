@@ -146,50 +146,52 @@ class OAuth2Helper(object):
             raise
         return token
 
-    def identify(self, token):
-        if self.jwt_enable:
-            log.debug(f'jwt_enabled')
-            log.debug(f'token: {token}')
-            json_token_decoded = jwt.decode(token['access_token'], verify=False)
-            username, email = self.extract_user_data_from_jwt(json_token_decoded)
-            user = self.find_or_create_user(username, email)
-            return user.name
-
+    def query_profile_api(self, token):
+        if self.legacy_idm:
+            profile_response = requests.get(self.profile_api_url + '?access_token=%s' % token['access_token'], verify=self.verify_https)
+            log.debug(f'profile response: {profile_response}')
         else:
-            try:
-                if self.legacy_idm:
-                    profile_response = requests.get(self.profile_api_url + '?access_token=%s' % token['access_token'], verify=self.verify_https)
-                    log.debug(f'profile response: {profile_response}')
-                else:
-                    log.debug(f'token: {token}')
-                    headers = {
-                        'X-Tapis-Token': token['access_token']
-                    }
-                    profile_response = requests.get(self.profile_api_url, headers=headers, verify=self.verify_https)
-                    log.debug(f'profile response_: {profile_response}')
+            log.debug(f'token: {token}')
+            headers = {
+                'X-Tapis-Token': token['access_token']
+            }
+            profile_response = requests.get(self.profile_api_url, headers=headers, verify=self.verify_https)
+            log.debug(f'profile response_: {profile_response}')
+        return profile_response
 
-            except requests.exceptions.SSLError as e:
-                log.debug('exception identify oauth2')
-                # TODO search a better way to detect invalid certificates
-                if "verify failed" in six.text_type(e):
-                    raise InsecureTransportError()
-                else:
-                    raise
-
-            # Token can be invalid
+    def query_profile_api_legacy(self, token):
+        try:
+            profile_response = requests.get(self.profile_api_url + '?access_token=%s' % token['access_token'], verify=self.verify_https)
             if not profile_response.ok:
-                error = profile_response.json()
-                if error.get('error', '') == 'invalid_token':
-                    raise ValueError(error.get('error_description'))
-                else:
-                    profile_response.raise_for_status()
-            else:
-                log.debug(f'profile_response: {profile_response}')
-                user_data = profile_response.json()['result']
-                username, email = self.extract_user_data_from_oauth_response(user_data)
-                user = self.find_or_create_user(username, email)
+                raise ValueError(profile_response.json().get('error_description'))
+            return profile_response
+        except Exception as e:
+            log.error(f'error: {e}')
+            raise
 
-        log.debug(f'user: {user}')
+    def query_profile_api_new(self, token):
+        try:
+            headers = {
+                'X-Tapis-Token': token['access_token']
+            }
+            profile_response = requests.get(self.profile_api_url, headers=headers, verify=self.verify_https)
+            if not profile_response.ok:
+                raise ValueError(profile_response.json().get('error_description'))
+            return profile_response
+        except Exception as e:
+            log.error(f'error: {e}')
+            raise
+
+    def identify(self, token):
+        if self.legacy_idm:
+            profile_response = self.query_profile_api_legacy(token)
+        else:
+            profile_response = self.query_profile_api_new(token)
+
+        user_data = profile_response.json()['result']
+        username, email = self.extract_user_data_from_oauth_response(user_data)
+        user = self.find_or_create_user(username, email)
+
         # Save the user in the database
         model.Session.add(user)
         model.Session.commit()
@@ -225,7 +227,7 @@ class OAuth2Helper(object):
             user = model.User(name=username, email=email)
         return user
 
-    def find_user(self, username: Optional[str], email: Optional[str]) -> Optional[model.User]:
+    def find_user(self, username: str | None, email: str | None) -> model.User | None:
         if username:
             users = model.User.by_name(username)
             if isinstance(users, model.User):
