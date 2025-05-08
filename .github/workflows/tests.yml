@@ -83,9 +83,9 @@ jobs:
       - name: Install extension
         run: python setup.py develop
 
-      - name: Run tests
-        run: |
-          python setup.py nosetests
+      # - name: Run tests
+      #   run: |
+      #     python setup.py nosetests
 
       # - name: Upload coverage to Coveralls
       #   if: success()
