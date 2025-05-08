@@ -74,7 +74,6 @@ setup(
     zip_safe=False,
     setup_requires=[
         'pytest>=7.0.0',
-        'pytest-ckan>=0.0.1'
     ],
     install_requires=[
         'requests-oauthlib==0.8.0',
@@ -84,7 +83,6 @@ setup(
         'parameterized',
         'selenium==3.5.0',
         'pytest>=7.0.0',
-        'pytest-ckan>=0.0.1'
     ],
     test_suite='pytest',
     entry_points={
