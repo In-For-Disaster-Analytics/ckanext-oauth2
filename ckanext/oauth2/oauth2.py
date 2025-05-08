@@ -217,7 +217,7 @@ class OAuth2Helper(object):
             profile_response = self.query_profile_api_legacy(token) if self.legacy_idm else self.query_profile_api_default(token)
             user_profile = profile_response.json()['result']
             try:
-                user = self.find_user(username, email)
+                user = self.find_user(user_profile.get(self.profile_api_user_field), user_profile.get(self.profile_api_mail_field))
             except ValueError:
                 user = self.create_user_object(user_profile)
         # Save the user in the database
