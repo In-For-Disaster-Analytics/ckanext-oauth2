@@ -76,7 +76,6 @@ jobs:
           PGPASSWORD=postgres psql -U postgres -h localhost -c "CREATE USER datastore_default WITH PASSWORD 'pass';"
           PGPASSWORD=postgres psql -U postgres -h localhost -c "CREATE DATABASE ckan_test WITH OWNER ckan_default;"
           PGPASSWORD=postgres psql -U postgres -h localhost -c "CREATE DATABASE datastore_test WITH OWNER ckan_default;"
-          # TODO: Add extension
           cd ckan
           ckan db init -c test-core.ini
           cd ..
