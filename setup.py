@@ -73,7 +73,8 @@ setup(
     include_package_data=True,
     zip_safe=False,
     setup_requires=[
-        'nose>=1.3.0'
+        'pytest>=7.0.0',
+        'pytest-ckan>=0.0.1'
     ],
     install_requires=[
         'requests-oauthlib==0.8.0',
@@ -81,9 +82,11 @@ setup(
     ],
     tests_require=[
         'parameterized',
-        'selenium==3.5.0'
+        'selenium==3.5.0',
+        'pytest>=7.0.0',
+        'pytest-ckan>=0.0.1'
     ],
-    test_suite='nosetests',
+    test_suite='pytest',
     entry_points={
         'ckan.plugins': [
             'oauth2 = ckanext.oauth2.plugin:OAuth2Plugin',
