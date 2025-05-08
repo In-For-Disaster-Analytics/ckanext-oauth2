@@ -68,18 +68,17 @@ jobs:
           pip3 install -r requirement-setuptools.txt
           pip3 install wheel
           pip3 install --no-binary markdown -r requirements.txt
+          cd ..
 
-      # - name: Setup PostgreSQL
-      #   run: |
-      #     PGPASSWORD=postgres psql -U postgres -h localhost -c "CREATE USER ckan_default WITH PASSWORD 'pass';"
-      #     PGPASSWORD=postgres psql -U postgres -h localhost -c "CREATE USER datastore_default WITH PASSWORD 'pass';"
-      #     PGPASSWORD=postgres psql -U postgres -h localhost -c "CREATE DATABASE ckan_test WITH OWNER ckan_default;"
-      #     PGPASSWORD=postgres psql -U postgres -h localhost -c "CREATE DATABASE datastore_test WITH OWNER ckan_default;"
-      #     cd ckan
-      #     pip3 install pyutilib
-      #     pip3 install flask_babel
-      #     ckan db init -c test-core.ini
-      #     cd ..
+      - name: Setup PostgreSQL
+        run: |
+          PGPASSWORD=postgres psql -U postgres -h localhost -c "CREATE USER ckan_default WITH PASSWORD 'pass';"
+          PGPASSWORD=postgres psql -U postgres -h localhost -c "CREATE USER datastore_default WITH PASSWORD 'pass';"
+          PGPASSWORD=postgres psql -U postgres -h localhost -c "CREATE DATABASE ckan_test WITH OWNER ckan_default;"
+          PGPASSWORD=postgres psql -U postgres -h localhost -c "CREATE DATABASE datastore_test WITH OWNER ckan_default;"
+          cd ckan
+          ckan db init -c test-core.ini
+          cd ..
 
       # - name: Install extension
       #   run: python setup.py develop
