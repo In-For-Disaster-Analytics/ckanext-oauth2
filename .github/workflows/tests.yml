@@ -70,10 +70,10 @@ jobs:
 
       - name: Setup PostgreSQL
         run: |
-          sudo -u postgres psql -c "CREATE USER ckan_default WITH PASSWORD 'pass';"
-          sudo -u postgres psql -c "CREATE USER datastore_default WITH PASSWORD 'pass';"
-          sudo -u postgres psql -c "CREATE DATABASE ckan_test WITH OWNER ckan_default;"
-          sudo -u postgres psql -c "CREATE DATABASE datastore_test WITH OWNER ckan_default;"
+          PGPASSWORD=postgres psql -U postgres -h postgres -c "CREATE USER ckan_default WITH PASSWORD 'pass';"
+          PGPASSWORD=postgres psql -U postgres -h postgres -c "CREATE USER datastore_default WITH PASSWORD 'pass';"
+          PGPASSWORD=postgres psql -U postgres -h postgres -c "CREATE DATABASE ckan_test WITH OWNER ckan_default;"
+          PGPASSWORD=postgres psql -U postgres -h postgres -c "CREATE DATABASE datastore_test WITH OWNER ckan_default;"
           cd ckan
           paster db init -c test-core.ini
           cd ..
