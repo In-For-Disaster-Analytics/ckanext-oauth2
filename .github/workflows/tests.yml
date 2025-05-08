@@ -65,6 +65,7 @@ jobs:
           pip3 install -e git+https://github.com/ckan/ckan.git@ckan-2.9.11#egg=ckan
           cd ckan
           git checkout ckan-2.9.11
+          pip3 install -r requirements.txt
           pip3 install -r dev-requirements.txt
           cd ..
 
