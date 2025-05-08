@@ -57,9 +57,11 @@ jobs:
 
       - name: Install CKAN
         run: |
-          pip3 install -e git+https://github.com/ckan/ckan.git@ckan-2.9.11#egg=ckan
           pip3 install -U pip
           pip3 install -U setuptools
+          git clone https://github.com/ckan/ckan
+          cd ckan
+          git checkout ckan-2.9.11
           pip3 install "cython<3.0.0"
           pip3 install "pyyaml==5.4.1" --no-build-isolation
           pip3 install -r requirement-setuptools.txt
