@@ -27,7 +27,7 @@ import json
 import logging
 from six.moves.urllib.parse import urljoin
 import os
-
+from typing import Optional
 from base64 import b64encode, b64decode
 from ckan.plugins import toolkit
 from oauthlib.oauth2 import InsecureTransportError
@@ -217,7 +217,7 @@ class OAuth2Helper(object):
         return email, user_name
 
 
-    def find_or_create_user(self, username: str | None, email: str | None) -> model.User | None:
+    def find_or_create_user(self, username: Optional[str], email: Optional[str]) -> Optional[model.User]:
         # Try to find existing user by username first, then by email
         user = self.find_user(username, email)
         # Create new user if not found
@@ -225,7 +225,7 @@ class OAuth2Helper(object):
             user = model.User(name=username, email=email)
         return user
 
-    def find_user(self, username: str | None, email: str | None) -> model.User | None:
+    def find_user(self, username: Optional[str], email: Optional[str]) -> Optional[model.User]:
         if username:
             users = model.User.by_name(username)
             if isinstance(users, model.User):
