@@ -227,7 +227,7 @@ class OAuth2Helper(object):
             user = model.User(name=username, email=email)
         return user
 
-    def find_user(self, username: str | None, email: str | None) -> model.User | None:
+    def find_user(self, username: Optional[str], email: Optional[str]) -> Optional[model.User]:
         if username:
             users = model.User.by_name(username)
             if isinstance(users, model.User):
