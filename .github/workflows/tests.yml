@@ -83,10 +83,10 @@ jobs:
       - name: Install extension
         run: python setup.py develop
 
-      # - name: Run tests
-      #   run: |
-      #     python setup.py nosetests
-
+      - name: Run tests
+        run: |
+          pip3 install pytest pytest-cov
+          pytest
       # - name: Upload coverage to Coveralls
       #   if: success()
       #   uses: coverallsapp/github-action@v2
