@@ -67,6 +67,7 @@ jobs:
           git checkout ckan-2.9.11
           pip3 install "cython<3.0.0"
           pip3 install "pyyaml==5.4.1" --no-build-isolation
+          pip3 install -r requirement-setuptools.txt
 
       # - name: Setup PostgreSQL
       #   run: |
