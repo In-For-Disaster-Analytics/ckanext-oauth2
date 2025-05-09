@@ -17,43 +17,42 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with OAuth2 CKAN Extension.  If not, see <http://www.gnu.org/licenses/>.
 
-import unittest
+import pytest
 import ckanext.oauth2.db as db
+from unittest.mock import MagicMock
 
-from mock import MagicMock
+@pytest.fixture
+def mock_sa(monkeypatch):
+    """Mock SQLAlchemy"""
+    mock = MagicMock()
+    monkeypatch.setattr(db, 'sa', mock)
+    return mock
 
+@pytest.fixture(autouse=True)
+def reset_db():
+    """Reset database state before and after each test"""
+    db.UserToken = None
+    yield
+    db.UserToken = None
 
-class DBTest(unittest.TestCase):
+def test_initdb_not_initialized(mock_sa):
+    """Test database initialization when not initialized"""
+    # Call the function
+    model = MagicMock()
+    db.init_db(model)
 
-    def setUp(self):
-        # Restart databse initial status
-        db.UserToken = None 
+    # Assert that table method has been called
+    mock_sa.Table.assert_called_once()
+    model.meta.mapper.assert_called_once()
 
-        # Create mocks
-        self._sa = db.sa
-        db.sa = MagicMock()
+def test_initdb_initialized(mock_sa):
+    """Test database initialization when already initialized"""
+    db.UserToken = MagicMock()
 
-    def tearDown(self):
-        db.UserToken = None
-        db.sa = self._sa
+    # Call the function
+    model = MagicMock()
+    db.init_db(model)
 
-    def test_initdb_not_initialized(self):
-
-        # Call the function
-        model = MagicMock()
-        db.init_db(model)
-
-        # Assert that table method has been called
-        db.sa.Table.assert_called_once()
-        model.meta.mapper.assert_called_once()
-
-    def test_initdb_initialized(self):
-        db.UserToken = MagicMock()
-
-        # Call the function
-        model = MagicMock()
-        db.init_db(model)
-
-        # Assert that table method has been called
-        self.assertEquals(0, db.sa.Table.call_count)
-        self.assertEquals(0, model.meta.mapper.call_count)
+    # Assert that table method has been called
+    assert mock_sa.Table.call_count == 0
+    assert model.meta.mapper.call_count == 0
