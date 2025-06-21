@@ -85,6 +85,7 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
     plugins.implements(plugins.IAuthFunctions, inherit=True)
     # plugins.implements(plugins.IRoutes, inherit=True)
     plugins.implements(plugins.IConfigurer)
+    plugins.implements(plugins.ITemplateHelpers)
 
 
     def __init__(self, name=None):
