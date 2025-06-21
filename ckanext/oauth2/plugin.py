@@ -95,7 +95,7 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
         log.debug(f'Creating UserToken...')
         self.oauth2helper = OAuth2Helper()
 
-    def get_helper(self):
+    def get_helpers(self):
         return {
             'oauth2_get_stored_token': self.oauth2helper.get_stored_token,
             'oauth2_refresh_token': self.oauth2helper.refresh_token,
