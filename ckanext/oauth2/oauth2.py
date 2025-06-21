@@ -270,6 +270,8 @@ class OAuth2Helper(object):
                 'expires_in': user_token.expires_in,
                 'token_type': user_token.token_type if user_token.token_type else 'new_token_type'
             }
+        else:
+            return None
 
     def update_token(self, user_name, token):
         try:
