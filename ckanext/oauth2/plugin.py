@@ -85,6 +85,7 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
     plugins.implements(plugins.IAuthFunctions, inherit=True)
     # plugins.implements(plugins.IRoutes, inherit=True)
     plugins.implements(plugins.IConfigurer)
+    plugins.implements(plugins.ITemplateHelpers)
 
 
     def __init__(self, name=None):
@@ -95,6 +96,26 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
         log.debug(f'Creating UserToken...')
         self.oauth2helper = OAuth2Helper()
 
+    def get_helpers(self):
+        return {
+            'oauth2_get_stored_token': self.get_stored_token_helper,
+            'oauth2_refresh_token': self.oauth2helper.refresh_token,
+        }
+
+    def get_stored_token_helper(self, user_name=None):
+        """Template helper to get stored OAuth2 token for a user"""
+        if not user_name:
+            # Automatically get current user if no user_name provided
+            user_name = getattr(toolkit.c, 'user', None)
+
+        if not user_name:
+            return None
+
+        try:
+            return self.oauth2helper.get_stored_token(user_name)
+        except Exception as e:
+            log.error(f"Error getting stored token for user {user_name}: {e}")
+            return None
 
     def identify(self):
         log.debug('identify')
