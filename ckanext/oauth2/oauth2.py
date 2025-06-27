@@ -296,6 +296,7 @@ class OAuth2Helper(object):
         model.Session.commit()
 
     def refresh_token(self, user_name):
+        log.info(f'Refreshing token for user {user_name}')
         token = self.get_stored_token(user_name)
         if token:
             client = OAuth2Session(self.client_id, token=token, scope=self.scope)
@@ -308,6 +309,9 @@ class OAuth2Helper(object):
                     raise InsecureTransportError()
                 else:
                     raise
+            except Exception as e:
+                log.error(f'Refresh token error: {e}')
+                raise
             self.update_token(user_name, token)
             log.info('Token for user %s has been updated properly' % user_name)
             return token
