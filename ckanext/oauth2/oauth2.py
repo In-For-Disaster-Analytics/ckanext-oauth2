@@ -286,20 +286,25 @@ class OAuth2Helper(object):
         """
         Decode JWT token using configured algorithm and secret/public key.
         """
+        log.debug(f"token: {token}")
+        log.debug(f"verify: {verify}")
+        log.debug(f"jwt_algorithm: {self.jwt_algorithm}")
+        log.debug(f"jwt_secret: {self.jwt_secret}")
+        log.debug(f"jwt_public_key: {self.jwt_public_key}")
         try:
             if verify:
                 # Determine the key to use based on algorithm
                 if self.jwt_algorithm.startswith('HS'):
                     # Symmetric algorithms (HS256, HS384, HS512) use shared secret
                     if self.jwt_secret:
-                        return jwt.decode(token, self.jwt_secret, algorithms=[self.jwt_algorithm])
+                        return jwt.decode(token, self.jwt_secret, algorithms=[self.jwt_algorithm], verify=True)
                     else:
                         log.error('JWT secret not configured for symmetric algorithm %s, rejecting token', self.jwt_algorithm)
                         raise ValueError('JWT secret not configured for symmetric algorithm')
                 elif self.jwt_algorithm.startswith('RS') or self.jwt_algorithm.startswith('ES'):
                     # Asymmetric algorithms (RS256, ES256, etc.) use public key
                     if self.jwt_public_key:
-                        return jwt.decode(token, self.jwt_public_key, algorithms=[self.jwt_algorithm])
+                        return jwt.decode(token, self.jwt_public_key, algorithms=[self.jwt_algorithm], verify=True)
                     else:
                         log.error('JWT public key not configured for asymmetric algorithm %s, rejecting token', self.jwt_algorithm)
                         raise ValueError('JWT public key not configured for asymmetric algorithm')
