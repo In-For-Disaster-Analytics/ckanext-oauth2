@@ -36,6 +36,9 @@ REQUESTS_CA_BUNDLE="/path/to/ca-bundle.crt"                        # Path to CA 
 
 # JWT Configuration
 CKAN_OAUTH2_JWT_ENABLE="false"                                      # Enable JWT token support
+CKAN_OAUTH2_JWT_ALGORITHM="HS256"                                   # JWT algorithm (e.g., HS256, RS256, ES256)
+CKAN_OAUTH2_JWT_SECRET="your-jwt-secret"                           # JWT secret for symmetric algorithms (HS256, HS384, HS512)
+CKAN_OAUTH2_JWT_PUBLIC_KEY="-----BEGIN PUBLIC KEY-----\n..."       # JWT public key for asymmetric algorithms (RS256, ES256, etc.)
 CKAN_OAUTH2_LEGACY_IDM="false"                                      # Enable legacy IDM support
 
 # Profile API Field Configuration
@@ -62,6 +65,11 @@ CKAN_OAUTH2_REMEMBER_NAME="auth_tkt"                               # Remember me
 2. **Client Credentials**: Keep your `CKAN_OAUTH2_CLIENT_ID` and `CKAN_OAUTH2_CLIENT_SECRET` secure and never commit them to version control.
 
 3. **CA Bundle**: When using self-signed certificates, provide the correct CA bundle path using `REQUESTS_CA_BUNDLE`.
+
+4. **JWT Security**: When JWT is enabled, you must provide the appropriate key for signature verification:
+   - For symmetric algorithms (HS256, HS384, HS512): Use `CKAN_OAUTH2_JWT_SECRET`
+   - For asymmetric algorithms (RS256, ES256, etc.): Use `CKAN_OAUTH2_JWT_PUBLIC_KEY`
+   - Without the appropriate key, JWT tokens will be rejected for security
 
 ## Links
 
