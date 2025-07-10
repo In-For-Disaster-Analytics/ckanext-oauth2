@@ -205,7 +205,7 @@ class OAuth2Helper(object):
     def identify(self, token):
         if self.jwt_enable:
             access_token = token['access_token']
-            token_decoded = jwt.decode(access_token, verify=False)
+            token_decoded = jwt.decode(access_token, verify=True)
             email = token_decoded.get('tapis/email')
             username = token_decoded.get('tapis/username')
             try:
