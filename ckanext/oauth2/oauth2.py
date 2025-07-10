@@ -289,7 +289,7 @@ class OAuth2Helper(object):
         if 'expires_in' in token:
             user_token.expires_in = token['expires_in']
         else:
-            access_token = jwt.decode(user_token.access_token, verify=False)
+            access_token = jwt.decode(user_token.access_token, verify=True)
             user_token.expires_in = access_token['exp'] - access_token['iat']
 
         model.Session.add(user_token)
