@@ -141,10 +141,9 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
             try:
                 token = {'access_token': apikey}
                 user_name = self.oauth2helper.identify(token)
-                log.debug(f'user_name1: {user_name}')
+                log.debug(f'Auth success: {user_name}')
             except Exception as e:
-                log.debug(f'Auth error:')
-                log.debug(e)
+                log.debug(f'Auth error: {e}')
                 pass
 
         # If the authentication via API fails, we can still log in the user using session.
