@@ -10,7 +10,7 @@ import ckan.lib.base as base
 import ckan.lib.helpers as h
 import ckan.logic as logic
 
-import ckantoolkit as toolkit
+import ckan.plugins.toolkit as toolkit
 
 from ckan import plugins as p
 
