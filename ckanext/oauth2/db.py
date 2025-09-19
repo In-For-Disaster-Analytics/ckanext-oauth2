@@ -51,7 +51,8 @@ def init_db(model):
         )
 
         # Create the table only if it does not exist
-        user_token_table.create(checkfirst=True)
+        if model.meta.metadata.bind:
+            user_token_table.create(model.meta.metadata.bind, checkfirst=True)
 
         model.meta.mapper(UserToken, user_token_table)
 

@@ -91,6 +91,7 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
     def __init__(self, name=None):
         '''Store the OAuth 2 client configuration'''
         log.debug('Init OAuth2 extension')
+        self.name = name or 'oauth2'
 
         db.init_db(model)
         log.debug(f'Creating UserToken...')
