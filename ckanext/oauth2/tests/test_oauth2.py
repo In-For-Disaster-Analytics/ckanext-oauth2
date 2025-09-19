@@ -137,7 +137,7 @@ class TestOAuth2Plugin:
 
     @patch('ckanext.oauth2.oauth2.OAuth2Session')
     def test_get_token_with_no_credentials(self, oauth2_setup, oauth2_session_mock):
-        state = b64encode(json.dumps({'came_from': 'initial-page'}))
+        state = b64encode(json.dumps({'came_from': 'initial-page'}).encode('utf-8'))
         oauth2.toolkit.request = make_request(True, 'data.com', 'callback', {'state': state})
 
         helper = self._helper(oauth2_setup)
@@ -153,7 +153,7 @@ class TestOAuth2Plugin:
         token = OAUTH2TOKEN
         OAuth2Session().fetch_token.return_value = OAUTH2TOKEN
 
-        state = b64encode(json.dumps({'came_from': 'initial-page'}))
+        state = b64encode(json.dumps({'came_from': 'initial-page'}).encode('utf-8'))
         oauth2.toolkit.request = make_request(True, 'data.com', 'callback', {'state': state, 'code': 'code'})
         retrieved_token = helper.get_token()
 
@@ -168,7 +168,7 @@ class TestOAuth2Plugin:
         helper.verify_https = True
         OAuth2Session().fetch_token.return_value = OAUTH2TOKEN
 
-        state = b64encode(json.dumps({'came_from': 'initial-page'}))
+        state = b64encode(json.dumps({'came_from': 'initial-page'}).encode('utf-8'))
         oauth2.toolkit.request = make_request(True, 'data.com', 'callback', {'state': state, 'code': 'code'})
         retrieved_token = helper.get_token()
 
@@ -176,8 +176,8 @@ class TestOAuth2Plugin:
             'Accept': 'application/json',
             'Content-Type': 'application/x-www-form-urlencoded',
             'Authorization': 'Basic %s' % urlsafe_b64encode(
-                '%s:%s' % (helper.client_id, helper.client_secret)
-            )
+                ('%s:%s' % (helper.client_id, helper.client_secret)).encode('utf-8')
+            ).decode('utf-8')
         }
 
         OAuth2Session().fetch_token.assert_called_once_with(
@@ -196,7 +196,7 @@ class TestOAuth2Plugin:
         token = OAUTH2TOKEN
         httpretty.register_uri(httpretty.POST, helper.token_endpoint, body=json.dumps(token))
 
-        state = b64encode(json.dumps({'came_from': 'initial-page'}))
+        state = b64encode(json.dumps({'came_from': 'initial-page'}).encode('utf-8'))
         oauth2.toolkit.request = make_request(False, 'data.com', 'callback', {'state': state, 'code': 'code'})
 
         with pytest.raises(InsecureTransportError):
@@ -209,7 +209,7 @@ class TestOAuth2Plugin:
         token = OAUTH2TOKEN
         httpretty.register_uri(httpretty.POST, helper.token_endpoint, body=json.dumps(token))
 
-        state = b64encode(json.dumps({'came_from': 'initial-page'}))
+        state = b64encode(json.dumps({'came_from': 'initial-page'}).encode('utf-8'))
         oauth2.toolkit.request = make_request(True, 'data.com', 'callback', {'state': state, 'code': 'code'})
 
         with pytest.raises(InsecureTransportError):
@@ -224,7 +224,7 @@ class TestOAuth2Plugin:
         token = OAUTH2TOKEN
         httpretty.register_uri(httpretty.POST, helper.token_endpoint, body=json.dumps(token))
 
-        state = b64encode(json.dumps({'came_from': 'initial-page'}))
+        state = b64encode(json.dumps({'came_from': 'initial-page'}).encode('utf-8'))
         oauth2.toolkit.request = make_request(True, 'data.com', 'callback', {'state': state, 'code': 'code'})
 
         with pytest.raises(SSLError):
@@ -239,7 +239,7 @@ class TestOAuth2Plugin:
         token = OAUTH2TOKEN
         httpretty.register_uri(httpretty.POST, helper.token_endpoint, body=json.dumps(token))
 
-        state = b64encode(json.dumps({'came_from': 'initial-page'}))
+        state = b64encode(json.dumps({'came_from': 'initial-page'}).encode('utf-8'))
         oauth2.toolkit.request = make_request(False, 'data.com', 'callback', {'state': state, 'code': 'code'})
         retrieved_token = helper.get_token()
 
@@ -256,7 +256,7 @@ class TestOAuth2Plugin:
         }
         httpretty.register_uri(httpretty.POST, helper.token_endpoint, body=json.dumps(token))
 
-        state = b64encode(json.dumps({'came_from': 'initial-page'}))
+        state = b64encode(json.dumps({'came_from': 'initial-page'}).encode('utf-8'))
         oauth2.toolkit.request = make_request(True, 'data.com', 'callback', {'state': state, 'code': 'code'})
 
         with pytest.raises(MissingTokenError):
@@ -494,7 +494,7 @@ class TestOAuth2Plugin:
     ])
     def test_redirect_from_callback(self, oauth2_setup, identity):
         came_from = 'initial-page'
-        state = b64encode(json.dumps({'came_from': came_from}))
+        state = b64encode(json.dumps({'came_from': came_from}).encode('utf-8'))
         oauth2.toolkit.request = make_request(True, 'data.com', 'callback', {'state': state, 'code': 'code'})
 
         helper = self._helper(oauth2_setup)

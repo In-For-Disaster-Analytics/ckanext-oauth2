@@ -38,17 +38,17 @@ pip install -r requirements-dev.txt
 
 ### Running Tests
 ```bash
-# Run all tests with nose (configured in setup.cfg)
-nosetests
+# Run all tests with pytest
+pytest
 
-# Run tests with coverage (default configuration)
-nosetests --with-coverage --cover-package=ckanext.oauth2
+# Run tests with coverage
+pytest --cov=ckanext.oauth2
 
 # Run specific test file
-nosetests ckanext/oauth2/tests/test_oauth2.py
+pytest ckanext/oauth2/tests/test_oauth2.py
 
 # Run specific test method
-nosetests ckanext.oauth2.tests.test_oauth2:TestOAuth2Helper.test_method_name
+pytest ckanext/oauth2/tests/test_oauth2.py::TestOAuth2Helper::test_method_name
 ```
 
 ### Code Quality

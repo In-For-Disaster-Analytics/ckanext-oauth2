@@ -77,7 +77,7 @@ jobs:
 
       # - name: Run tests
       #   run: |
-      #     python setup.py nosetests
+      #     pytest
 
       # - name: Upload coverage to Coveralls
       #   if: success()
