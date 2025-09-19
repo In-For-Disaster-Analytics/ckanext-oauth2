@@ -19,28 +19,24 @@
 # along with OAuth2 CKAN Extension.  If not, see <http://www.gnu.org/licenses/>.
 
 
-import base64
-import ckan.model as model
-from ckanext.oauth2.db import UserToken
-import ckanext.oauth2.db as db
+from base64 import b64encode, b64decode
+from typing import Optional
 import json
 import logging
-from six.moves.urllib.parse import urljoin
 import os
-from typing import Optional
-from base64 import b64encode, b64decode
-from ckan.plugins import toolkit
-from oauthlib.oauth2 import InsecureTransportError
-import requests
-from requests_oauthlib import OAuth2Session
-import six
-
 import jwt
+import six
+import requests
+from six.moves.urllib.parse import urljoin
+from oauthlib.oauth2 import InsecureTransportError
+from requests_oauthlib import OAuth2Session
 
+
+from ckan.plugins import toolkit # type: ignore
+from flask import jsonify
+import ckan.model as model
+import ckanext.oauth2.db as db
 from .constants import *
-from flask import Flask, request, redirect, session, url_for, jsonify
-
-
 
 log = logging.getLogger(__name__)
 

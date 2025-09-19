@@ -22,7 +22,7 @@ from base64 import b64decode, b64encode
 import unittest
 import json
 
-from mock import MagicMock
+from unittest.mock import MagicMock
 from parameterized import parameterized
 
 from ckanext.oauth2 import controller, plugin
@@ -89,7 +89,7 @@ class OAuth2PluginTest(unittest.TestCase):
         oauth2Helper.identify.return_value = user_id
 
         # Call the controller
-        self.controller.callback()
+        controller_setup.callback()
 
         oauth2Helper.get_token.assert_called_once()
         oauth2Helper.identify.assert_called_once_with(token)
@@ -124,12 +124,12 @@ class OAuth2PluginTest(unittest.TestCase):
         controller.toolkit.request.params.get = controller.toolkit.request.GET.get
 
         # Call the controller
-        self.controller.callback()
+        controller_setup.callback()
 
         # Check the state and the location
         controller.session.save.assert_called_once_with()
-        self.assertEquals(RETURNED_STATUS, controller.toolkit.response.status_int)
-        self.assertEquals(came_from, controller.toolkit.response.location)
+        assert RETURNED_STATUS == controller.toolkit.response.status_int
+        assert came_from == controller.toolkit.response.location
         controller.helpers.flash_error.assert_called_once_with(expected_flash)
 
     @parameterized.expand([
@@ -158,6 +158,6 @@ class OAuth2PluginTest(unittest.TestCase):
             controller.toolkit.request.params['came_from'] = came_from
 
         # Call the function
-        self.controller.login()
+        controller_setup.login()
 
-        self.controller.oauth2helper.challenge.assert_called_once_with(expected_referer)
+        controller_setup.oauth2helper.challenge.assert_called_once_with(expected_referer)
