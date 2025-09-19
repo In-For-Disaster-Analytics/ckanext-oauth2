@@ -49,6 +49,8 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "httpretty>=1.1.4",
+    "parameterized>=0.9.0",
     "pytest>=8.4.2",
     "pytest-factoryboy>=2.8.1",
 ]

@@ -74,7 +74,7 @@ def oauth2_setup():
 
     # Mock toolkit
     oauth2.toolkit = MagicMock()
-    
+
     yield {
         'user_field': user_field,
         'fullname_field': fullname_field,
@@ -82,7 +82,7 @@ def oauth2_setup():
         'profile_api_url': profile_api_url,
         'group_field': group_field
     }
-    
+
     # Reset the functions
     oauth2.toolkit = original_toolkit
     oauth2.model.User = original_User

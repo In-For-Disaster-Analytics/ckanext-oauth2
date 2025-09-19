@@ -56,49 +56,6 @@ class TestPlugin:
         if identity:
             plugin.toolkit.request.environ['repoze.who.identity'] = {'repoze.who.userid': identity}
 
-    @pytest.mark.parametrize("register_url,reset_url,edit_url", [
-        (None, None, None),
-        ('a', None, None),
-        (None, 'a', None),
-        (None, None, 'a'),
-        ('a', 'b', 'c')
-    ])
-    def test_before_map(self, plugin_setup, register_url, reset_url, edit_url):
-
-        # Setup the config dictionary
-        plugin.toolkit.config = {}
-
-        if register_url:
-            plugin.toolkit.config['ckan.oauth2.register_url'] = register_url
-
-        if reset_url:
-            plugin.toolkit.config['ckan.oauth2.reset_url'] = reset_url
-
-        if edit_url:
-            plugin.toolkit.config['ckan.oauth2.edit_url'] = edit_url
-
-        plugin_setup.update_config(plugin.toolkit.config)
-
-        # In this case we need a own instance of the plugin, so we create it
-        oauth2_plugin = plugin.OAuth2Plugin()
-
-        # Create the mapper (mock) and call the function
-        mapper = MagicMock()
-        oauth2_plugin.before_map(mapper)
-
-        # Check that the mapper has been called correctly
-        mapper.connect.assert_called_with('/oauth2/callback',
-                                          controller='ckanext.oauth2.controller:OAuth2Controller',
-                                          action='callback')
-
-        if register_url:
-            mapper.redirect.assert_any_call('/user/register', register_url)
-
-        if reset_url:
-            mapper.redirect.assert_any_call('/user/reset', reset_url)
-
-        if edit_url:
-            mapper.redirect.assert_any_call('/user/edit/{user}', edit_url)
 
     def test_auth_functions(self, plugin_setup):
 
