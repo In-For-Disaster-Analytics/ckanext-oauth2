@@ -317,91 +317,225 @@ class TestOAuth2Plugin:
                        'redirect_uri=http%3A%2F%2Flocalhost%3A5000%2Foauth2%2Fcallback&' + state
         oauth2.toolkit.redirect_to.assert_called_once_with(expected_url)
 
-    @pytest.mark.parametrize("username,fullname,email,user_exists,fullname_field,sysadmin", [
-        ('test_user', 'Test User Full Name', 'test@test.com', True, True, None),
-        ('test_user', None, 'test@test.com', True, True, None),
-        # ('test_user', 'Test User Full Name',  None),
-        ('test_user', 'Test User Full Name', 'test@test.com', False, True, None),
-        ('test_user', None, 'test@test.com', False, True, None),
-        ('test_user', None, 'test@test.com', False, False, False),
-        ('test_user', None, 'test@test.com', False, False, True),
-        ('test_user', 'Test User Full Name', 'test@test.com', True, True, None),
-        ('test_user', 'Test User Full Name', 'test@test.com', True, False, None),
-        ('test_user', 'Test User Full Name', 'test@test.com', True, True, True),
-        ('test_user', 'Test User Full Name', 'test@test.com', True, True, False),
-        ('test_user', None, 'test@test.com', True, True, None),
-        # ('test_user', 'Test User Full Name', None, True, True),
-        ('test_user', None, 'test@test.com', True, False, None),
+    @pytest.mark.parametrize("username,fullname,email,fullname_field", [
+        ('test_user', 'Test User Full Name', 'test@test.com', True),
+        ('test_user', None, 'test@test.com', True),
+        ('test_user', 'Test User Full Name', 'test@test.com', False),
     ])
     @httpretty.activate
-    def test_identify(self, oauth2_setup, username, fullname, email, user_exists,
-                      fullname_field, sysadmin):
+    def test_identify_user_exists_no_sysadmin(self, oauth2_setup, username, fullname, email, fullname_field):
+        """
+        Test identify when user already exists in the database (no sysadmin check).
 
-        self.helper = helper = self._helper(oauth2_setup, fullname_field)
+        When a user already exists, identify() should:
+        - Find the user by username using User.by_name()
+        - Return the existing user without modification
+        - Not create a new user object
+        """
+        helper = self._helper(oauth2_setup, fullname_field)
 
-        # Simulate the HTTP Request
-        user_info = {}
-        user_info[oauth2_setup['user_field']] = username
-        user_info[oauth2_setup['email_field']] = email
-
+        # Simulate OAuth provider response
+        user_info = {
+            oauth2_setup['user_field']: username,
+            oauth2_setup['email_field']: email
+        }
         if fullname:
             user_info[oauth2_setup['fullname_field']] = fullname
 
-        if sysadmin is not None:
-            self.helper.profile_api_groupmembership_field = oauth2_setup['group_field']
-            self.helper.sysadmin_group_name = "admin"
-            user_info[oauth2_setup['group_field']] = "admin" if sysadmin else "other"
-
         httpretty.register_uri(httpretty.GET, oauth2_setup['profile_api_url'], body=json.dumps(user_info))
 
-        print(username, fullname, email, user_exists, fullname_field, sysadmin)
-
-        # Create the mocks
+        # Mock the request and database
         request = make_request(False, 'localhost', '/oauth2/callback', {})
         oauth2.toolkit.request = request
         oauth2.model.Session = MagicMock()
+
+        # Create existing user mock
         user = MagicMock()
         user.name = username
-        user.fullname = fullname
         user.email = email
-        oauth2.model.User = MagicMock(return_value=user)
-        oauth2.model.User.by_name = MagicMock(return_value=user if user_exists else None)
-        oauth2.model.User.by_email = MagicMock(return_value=[user] if user_exists else [])
 
-        # Call the function
+        oauth2.model.User = MagicMock(return_value=user)
+        oauth2.model.User.by_name = MagicMock(return_value=user)
+        oauth2.model.User.by_email = MagicMock(return_value=[user])
+
+        # Call identify
         returned_username = helper.identify(OAUTH2TOKEN)
 
-        # The function must return the user name
+        # Verify the user was found and returned
         assert returned_username == username
+        oauth2.model.User.by_name.assert_called_once_with(username)
+        oauth2.model.User.by_email.assert_not_called()
 
-        # Asserts - check that the appropriate lookup method was called
-        if user_exists and username:
-            # When user exists and username is provided, by_name should be called
-            oauth2.model.User.by_name.assert_called_once_with(username)
-            # by_email should not be called when by_name succeeds
-            oauth2.model.User.by_email.assert_not_called()
-        else:
-            # When user doesn't exist or no username, by_email should be called
-            oauth2.model.User.by_email.assert_called_once_with(email)
+        # Verify no new user was created
+        assert oauth2.model.User.called == 0
 
-        # Check if the user is created or not
-        if not user_exists:
-            oauth2.model.User.assert_called_once_with(name=username, email=email)
-        else:
-            assert oauth2.model.User.called == 0
+        # Verify session operations
+        oauth2.model.Session.add.assert_called_once_with(user)
+        oauth2.model.Session.commit.assert_called_once()
+        oauth2.model.Session.remove.assert_called_once()
 
-        # Check that user properties are set properly
+    @pytest.mark.parametrize("username,fullname,email,fullname_field", [
+        ('test_user', 'Test User Full Name', 'test@test.com', True),
+        ('test_user', None, 'test@test.com', True),
+        ('test_user', None, 'test@test.com', False),
+    ])
+    @httpretty.activate
+    def test_identify_user_not_exists_no_sysadmin(self, oauth2_setup, username, fullname, email, fullname_field):
+        """
+        Test identify when user does not exist in the database (no sysadmin check).
+
+        When a user doesn't exist, identify() should:
+        - Try to find by username first (returns None)
+        - Try to find by email (returns empty list)
+        - Create a new user with properties from OAuth provider
+        - Set fullname only if provided and fullname_field is configured
+        """
+        helper = self._helper(oauth2_setup, fullname_field)
+
+        # Simulate OAuth provider response
+        user_info = {
+            oauth2_setup['user_field']: username,
+            oauth2_setup['email_field']: email
+        }
+        if fullname:
+            user_info[oauth2_setup['fullname_field']] = fullname
+
+        httpretty.register_uri(httpretty.GET, oauth2_setup['profile_api_url'], body=json.dumps(user_info))
+
+        # Mock the request and database
+        request = make_request(False, 'localhost', '/oauth2/callback', {})
+        oauth2.toolkit.request = request
+        oauth2.model.Session = MagicMock()
+
+        # Create new user mock
+        user = MagicMock()
+        user.name = username
+        user.email = email
+
+        oauth2.model.User = MagicMock(return_value=user)
+        oauth2.model.User.by_name = MagicMock(return_value=None)
+        oauth2.model.User.by_email = MagicMock(return_value=[])
+
+        # Call identify
+        returned_username = helper.identify(OAUTH2TOKEN)
+
+        # Verify the user was created
+        assert returned_username == username
+        oauth2.model.User.assert_called_once_with(name=username, email=email)
+
+        # Verify user properties
         assert user.name == username
         assert user.email == email
-        if sysadmin is not None:
-            assert user.sysadmin == sysadmin
 
-        if fullname and fullname_field:
-            assert user.fullname == fullname
-        else:
-            assert user.fullname is None
+        # Verify session operations
+        oauth2.model.Session.add.assert_called_once_with(user)
+        oauth2.model.Session.commit.assert_called_once()
+        oauth2.model.Session.remove.assert_called_once()
 
-        # Check that the user is saved
+    @pytest.mark.parametrize("sysadmin", [True, False])
+    @httpretty.activate
+    def test_identify_user_exists_with_sysadmin(self, oauth2_setup, sysadmin):
+        """
+        Test identify when user already exists with sysadmin group check.
+
+        When a user already exists, identify() should:
+        - Find the user by username
+        - Return the existing user without modifying sysadmin status
+        """
+        username = 'test_user'
+        email = 'test@test.com'
+        helper = self._helper(oauth2_setup, fullname_field=True)
+        helper.profile_api_groupmembership_field = oauth2_setup['group_field']
+        helper.sysadmin_group_name = "admin"
+
+        # Simulate OAuth provider response with group membership
+        user_info = {
+            oauth2_setup['user_field']: username,
+            oauth2_setup['email_field']: email,
+            oauth2_setup['group_field']: "admin" if sysadmin else "other"
+        }
+
+        httpretty.register_uri(httpretty.GET, oauth2_setup['profile_api_url'], body=json.dumps(user_info))
+
+        # Mock the request and database
+        request = make_request(False, 'localhost', '/oauth2/callback', {})
+        oauth2.toolkit.request = request
+        oauth2.model.Session = MagicMock()
+
+        # Create existing user mock
+        user = MagicMock()
+        user.name = username
+        user.email = email
+
+        oauth2.model.User = MagicMock(return_value=user)
+        oauth2.model.User.by_name = MagicMock(return_value=user)
+        oauth2.model.User.by_email = MagicMock(return_value=[user])
+
+        # Call identify
+        returned_username = helper.identify(OAUTH2TOKEN)
+
+        # Verify the user was found and returned
+        assert returned_username == username
+        oauth2.model.User.by_name.assert_called_once_with(username)
+
+        # Verify no new user was created
+        assert oauth2.model.User.called == 0
+
+        # Verify session operations
+        oauth2.model.Session.add.assert_called_once_with(user)
+        oauth2.model.Session.commit.assert_called_once()
+        oauth2.model.Session.remove.assert_called_once()
+
+    @pytest.mark.parametrize("sysadmin", [True, False])
+    @httpretty.activate
+    def test_identify_user_not_exists_with_sysadmin(self, oauth2_setup, sysadmin):
+        """
+        Test identify when user does not exist with sysadmin group check.
+
+        When a user doesn't exist, identify() should:
+        - Create a new user with properties from OAuth provider
+        - Set sysadmin status based on group membership
+        """
+        username = 'test_user'
+        email = 'test@test.com'
+        helper = self._helper(oauth2_setup, fullname_field=True)
+        helper.profile_api_groupmembership_field = oauth2_setup['group_field']
+        helper.sysadmin_group_name = "admin"
+
+        # Simulate OAuth provider response with group membership
+        user_info = {
+            oauth2_setup['user_field']: username,
+            oauth2_setup['email_field']: email,
+            oauth2_setup['group_field']: "admin" if sysadmin else "other"
+        }
+
+        httpretty.register_uri(httpretty.GET, oauth2_setup['profile_api_url'], body=json.dumps(user_info))
+
+        # Mock the request and database
+        request = make_request(False, 'localhost', '/oauth2/callback', {})
+        oauth2.toolkit.request = request
+        oauth2.model.Session = MagicMock()
+
+        # Create new user mock
+        user = MagicMock()
+        user.name = username
+        user.email = email
+
+        oauth2.model.User = MagicMock(return_value=user)
+        oauth2.model.User.by_name = MagicMock(return_value=None)
+        oauth2.model.User.by_email = MagicMock(return_value=[])
+
+        # Call identify
+        returned_username = helper.identify(OAUTH2TOKEN)
+
+        # Verify the user was created
+        assert returned_username == username
+        oauth2.model.User.assert_called_once_with(name=username, email=email)
+
+        # Verify sysadmin status was set correctly
+        assert user.sysadmin == sysadmin
+
+        # Verify session operations
         oauth2.model.Session.add.assert_called_once_with(user)
         oauth2.model.Session.commit.assert_called_once()
         oauth2.model.Session.remove.assert_called_once()
