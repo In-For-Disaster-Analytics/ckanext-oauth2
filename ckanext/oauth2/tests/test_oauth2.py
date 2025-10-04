@@ -646,18 +646,23 @@ class TestOAuth2Plugin:
         {'came_from': 'http://localhost/dataset'},
         {},
     ])
-    def test_redirect_from_callback(self, oauth2_setup, identity):
+    @patch('ckanext.oauth2.oauth2.jsonify')
+    def test_redirect_from_callback(self, mock_jsonify, oauth2_setup, identity):
         came_from = 'initial-page'
         state = b64encode(json.dumps({'came_from': came_from}).encode('utf-8'))
         oauth2.toolkit.request = make_request(True, 'data.com', 'callback', {'state': state, 'code': 'code'})
 
+        # Configure the mock
+        mock_response = MagicMock()
+        mock_jsonify.return_value = mock_response
+
         helper = self._helper(oauth2_setup)
         resp_remember = MagicMock()
         resp_remember.headers = []
-        helper.redirect_from_callback(resp_remember)
+        result = helper.redirect_from_callback(resp_remember)
 
-        assert oauth2.toolkit.response.status == 302
-        assert oauth2.toolkit.response.location == came_from
+        assert mock_response.status_code == 302
+        mock_response.headers.__setitem__.assert_any_call('location', came_from)
 
     @pytest.mark.parametrize("user_exists,jwt_expires_in", [
         (True, True),
