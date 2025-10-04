@@ -19,7 +19,7 @@
 # along with OAuth2 CKAN Extension.  If not, see <http://www.gnu.org/licenses/>.
 
 
-from base64 import b64encode, b64decode
+from base64 import b64encode, b64decode, urlsafe_b64encode
 from typing import Optional
 import json
 import logging
@@ -123,12 +123,12 @@ class OAuth2Helper(object):
 
         if self.legacy_idm:
             # This is only required for Keyrock v6 and v5
-            headers['Authorization'] = 'Basic %s' % base64.urlsafe_b64encode(
+            headers['Authorization'] = 'Basic %s' % urlsafe_b64encode(
                 (f'{self.client_id}:{self.client_secret}').encode()
             )
 
         try:
-            authorization_response = toolkit.request.url.replace("http:", "https:", 1)
+            authorization_response = toolkit.request.url
             token = oauth.fetch_token(self.token_endpoint,
                                       client_id=self.client_id,
                                       client_secret=self.client_secret,
