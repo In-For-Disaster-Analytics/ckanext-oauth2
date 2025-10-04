@@ -617,8 +617,8 @@ class TestOAuth2Plugin:
         token = {'access_token': 'OAUTH_TOKEN'}
 
         with pytest.raises(SSLError):
-            with patch('ckanext.oauth2.oauth2.OAuth2Session') as oauth2_session_mock:
-                oauth2_session_mock().get.side_effect = SSLError('unexpected error')
+            with patch('requests.get') as requests_get_mock:
+                requests_get_mock.side_effect = SSLError('unexpected error')
                 helper.identify(token)
 
     def test_get_stored_token_non_existing_user(self, oauth2_setup):
