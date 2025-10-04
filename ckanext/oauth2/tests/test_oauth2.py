@@ -312,7 +312,7 @@ class TestOAuth2Plugin:
         helper.challenge(came_from)
 
         # Check
-        state = urlencode({'state': b64encode(bytes(json.dumps({'came_from': came_from})))})
+        state = urlencode({'state': b64encode(json.dumps({'came_from': came_from}).encode('utf-8'))})
         expected_url = 'https://test/oauth2/authorize/?response_type=code&client_id=client-id&' + \
                        'redirect_uri=http%3A%2F%2Flocalhost%3A5000%2Foauth2%2Fcallback&' + state
         oauth2.toolkit.redirect_to.assert_called_once_with(expected_url)
