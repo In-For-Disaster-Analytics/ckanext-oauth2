@@ -361,10 +361,11 @@ class TestOAuth2Plugin:
         oauth2.toolkit.request = request
         oauth2.model.Session = MagicMock()
         user = MagicMock()
-        user.name = None
-        user.fullname = None
+        user.name = username
+        user.fullname = fullname
         user.email = email
         oauth2.model.User = MagicMock(return_value=user)
+        oauth2.model.User.by_name = MagicMock(return_value=user if user_exists else None)
         oauth2.model.User.by_email = MagicMock(return_value=[user] if user_exists else [])
 
         # Call the function
@@ -373,12 +374,19 @@ class TestOAuth2Plugin:
         # The function must return the user name
         assert returned_username == username
 
-        # Asserts
-        oauth2.model.User.by_email.assert_called_once_with(email)
+        # Asserts - check that the appropriate lookup method was called
+        if user_exists and username:
+            # When user exists and username is provided, by_name should be called
+            oauth2.model.User.by_name.assert_called_once_with(username)
+            # by_email should not be called when by_name succeeds
+            oauth2.model.User.by_email.assert_not_called()
+        else:
+            # When user doesn't exist or no username, by_email should be called
+            oauth2.model.User.by_email.assert_called_once_with(email)
 
         # Check if the user is created or not
         if not user_exists:
-            oauth2.model.User.assert_called_once_with(email=email)
+            oauth2.model.User.assert_called_once_with(name=username, email=email)
         else:
             assert oauth2.model.User.called == 0
 
