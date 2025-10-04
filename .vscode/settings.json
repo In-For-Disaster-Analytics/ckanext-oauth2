@@ -1,11 +1,7 @@
 {
   "python.testing.unittestEnabled": false,
   "python.testing.pytestEnabled": true,
-  "python.testing.pytestArgs": [
-    "ckanext/oauth2/tests"
-  ],
-  "python.testing.pytestEnv": {
-    "CKAN_INI": "test.ini"
-  },
+  "python.testing.pytestArgs": ["ckanext/oauth2/tests"],
+  "python.envFile": "${workspaceFolder}/.env.test",
   "python.defaultInterpreterPath": ".venv/bin/python"
 }

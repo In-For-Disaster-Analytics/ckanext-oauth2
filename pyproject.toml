@@ -1,9 +1,30 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
 [project]
-name = "oauth2"
-version = "0.1.0"
-description = "Add your description here"
+name = "ckanext-oauth2"
+version = "0.7.1"
+description = "OAuth2 support for CKAN"
 readme = "README.md"
 requires-python = ">=3.9"
+keywords = ["CKAN", "OAuth2"]
+authors = [
+    {name = "Aitor Magán", email = "amagan@conwet.com"}
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Topic :: Internet :: WWW/HTTP :: Session",
+    "Topic :: Internet :: WWW/HTTP :: WSGI :: Middleware",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Systems Administration :: Authentication/Directory",
+]
+
+
 dependencies = [
     "alembic==1.13.2",
     "babel==2.15.0",
@@ -46,6 +67,12 @@ dependencies = [
     "werkzeug[watchdog]==3.0.6",
     "zope-interface==6.4.post2",
 ]
+[project.urls]
+Homepage = "https://github.com/conwetlab/ckanext-oauth2"
+Download = "https://github.com/conwetlab/ckanext-oauth2/tarball/v0.7.1"
+
+[project.entry-points."ckan.plugins"]
+oauth2 = "ckanext.oauth2.plugin:OAuth2Plugin"
 
 [dependency-groups]
 dev = [
@@ -54,3 +81,8 @@ dev = [
     "pytest>=8.4.2",
     "pytest-factoryboy>=2.8.1",
 ]
+
+
+[tool.setuptools.packages.find]
+include = ["ckanext*"]
+namespaces = true

@@ -72,12 +72,8 @@ setup(
     setup_requires=[
     ],
     install_requires=[
-        'requests-oauthlib==0.8.0',
-        'pyjwt==1.7.1',
     ],
     tests_require=[
-        'parameterized',
-        'selenium==3.5.0'
     ],
     entry_points={
         'ckan.plugins': [
