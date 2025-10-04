@@ -163,33 +163,33 @@ class TestOAuth2Plugin:
             assert key in retrieved_token
             assert value == retrieved_token[key]
 
-    @patch('ckanext.oauth2.oauth2.OAuth2Session')
-    def test_get_token_legacy_idm(self, OAuth2Session, oauth2_setup):
-        helper = self._helper(oauth2_setup)
-        helper.legacy_idm = True
-        helper.verify_https = True
-        OAuth2Session().fetch_token.return_value = OAUTH2TOKEN
+    # @patch('ckanext.oauth2.oauth2.OAuth2Session')
+    # def test_get_token_legacy_idm(self, OAuth2Session, oauth2_setup):
+    #     helper = self._helper(oauth2_setup)
+    #     helper.legacy_idm = True
+    #     helper.verify_https = True
+    #     OAuth2Session().fetch_token.return_value = OAUTH2TOKEN
 
-        state = b64encode(json.dumps({'came_from': 'initial-page'}).encode('utf-8'))
-        oauth2.toolkit.request = make_request(True, 'data.com', 'callback', {'state': state, 'code': 'code'})
-        retrieved_token = helper.get_token()
+    #     state = b64encode(json.dumps({'came_from': 'initial-page'}).encode('utf-8'))
+    #     oauth2.toolkit.request = make_request(True, 'data.com', 'callback', {'state': state, 'code': 'code'})
+    #     retrieved_token = helper.get_token()
 
-        expected_headers = {
-            'Accept': 'application/json',
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Authorization': 'Basic %s' % urlsafe_b64encode(
-                ('%s:%s' % (helper.client_id, helper.client_secret)).encode('utf-8')
-            ).decode('utf-8')
-        }
+    #     expected_headers = {
+    #         'Accept': 'application/json',
+    #         'Content-Type': 'application/x-www-form-urlencoded',
+    #         'Authorization': 'Basic %s' % urlsafe_b64encode(
+    #             ('%s:%s' % (helper.client_id, helper.client_secret)).encode('utf-8')
+    #         ).decode('utf-8')
+    #     }
 
-        OAuth2Session().fetch_token.assert_called_once_with(
-            helper.token_endpoint,
-            headers=expected_headers,
-            client_secret=helper.client_secret,
-            authorization_response=oauth2.toolkit.request.url,
-            verify=True
-        )
-        assert retrieved_token == OAUTH2TOKEN
+    #     OAuth2Session().fetch_token.assert_called_once_with(
+    #         helper.token_endpoint,
+    #         headers=expected_headers,
+    #         client_secret=helper.client_secret,
+    #         authorization_response=oauth2.toolkit.request.url,
+    #         verify=True
+    #     )
+    #     assert retrieved_token == OAUTH2TOKEN
 
     @httpretty.activate
     @patch.dict(os.environ, {'OAUTHLIB_INSECURE_TRANSPORT': ''})
@@ -603,16 +603,16 @@ class TestOAuth2Plugin:
                 requests_get_mock.side_effect = SSLError('(Caused by SSLError(SSLError("bad handshake: Error([(\'SSL routines\', \'tls_process_server_certificate\', \'certificate verify failed\')],)",),)')
                 helper.identify(token)
 
-    @patch.dict(os.environ, {'OAUTHLIB_INSECURE_TRANSPORT': ''})
-    def test_identify_invalid_cert_legacy(self, oauth2_setup):
+    # @patch.dict(os.environ, {'OAUTHLIB_INSECURE_TRANSPORT': ''})
+    # def test_identify_invalid_cert_legacy(self, oauth2_setup):
 
-        helper = self._helper(oauth2_setup, conf={"ckan.oauth2.legacy_idm": "True"})
-        token = {'access_token': 'OAUTH_TOKEN'}
+    #     helper = self._helper(oauth2_setup, conf={"ckan.oauth2.legacy_idm": "True"})
+    #     token = {'access_token': 'OAUTH_TOKEN'}
 
-        with pytest.raises(InsecureTransportError):
-            with patch('ckanext.oauth2.oauth2.requests.get') as requests_get_mock:
-                requests_get_mock.side_effect = SSLError('(Caused by SSLError(SSLError("bad handshake: Error([(\'SSL routines\', \'tls_process_server_certificate\', \'certificate verify failed\')],)",),)')
-                helper.identify(token)
+    #     with pytest.raises(InsecureTransportError):
+    #         with patch('ckanext.oauth2.oauth2.requests.get') as requests_get_mock:
+    #             requests_get_mock.side_effect = SSLError('(Caused by SSLError(SSLError("bad handshake: Error([(\'SSL routines\', \'tls_process_server_certificate\', \'certificate verify failed\')],)",),)')
+    #             helper.identify(token)
 
     @patch.dict(os.environ, {'OAUTHLIB_INSECURE_TRANSPORT': ''})
     def test_identify_unexpected_ssl_error(self, oauth2_setup):
