@@ -666,7 +666,7 @@ class TestOAuth2Plugin:
         (False, True),
     ])
     def test_update_token(self, oauth2_setup, user_exists, jwt_expires_in):
-        helper = self._helper(oauth2_setup)
+        helper = self._helper(oauth2_setup, jwt_enable=not jwt_expires_in)
         user = 'user'
 
         if user_exists:
