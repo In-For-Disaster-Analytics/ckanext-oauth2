@@ -35,18 +35,14 @@ def plugin_setup():
     plugin.toolkit = MagicMock()
     plugin.toolkit.config = {'ckan.oauth2.authorization_header': OAUTH2_AUTHORIZATION_HEADER}
 
-    original_oauth2 = plugin.oauth2
-    plugin.oauth2 = MagicMock()
-
     # Create the plugin
     oauth2_plugin = plugin.OAuth2Plugin()
     oauth2_plugin.update_config(plugin.toolkit.config)
-    
+
     yield oauth2_plugin
-    
+
     # Cleanup
     plugin.toolkit = original_toolkit
-    plugin.oauth2 = original_oauth2
 
 
 class TestPlugin:
