@@ -275,10 +275,14 @@ class TestOAuth2Plugin:
         [('Set-Cookie', 'cookie1="cookie1val"; Path=/')],
         [('Set-Cookie', 'cookie1="cookie1val"; Path=/'), ('Set-Cookie', 'cookie12="cookie2val"; Path=/')],
     ])
-    def test_remember(self, oauth2_setup, headers):
+    @patch('ckanext.oauth2.oauth2.jsonify')
+    def test_remember(self, mock_jsonify, oauth2_setup, headers):
         user_name = 'user_name'
 
         # Configure the mocks
+        mock_response = MagicMock()
+        mock_jsonify.return_value = mock_response
+
         environ = MagicMock()
         plugins = MagicMock()
         authenticator = MagicMock()
@@ -290,13 +294,13 @@ class TestOAuth2Plugin:
 
         # Call the function
         helper = self._helper(oauth2_setup)
-        helper.remember(user_name)
+        result = helper.remember(user_name)
 
         # Check that the remember method has been called properly
         authenticator.remember.assert_called_once_with(environ, {'repoze.who.userid': user_name})
 
         for header, value in headers:
-            oauth2.toolkit.response.headers.add.assert_any_call(header, value)
+            mock_response.headers.__setitem__.assert_any_call(header, value)
 
     def test_challenge(self, oauth2_setup):
         helper = self._helper(oauth2_setup)
@@ -648,7 +652,9 @@ class TestOAuth2Plugin:
         oauth2.toolkit.request = make_request(True, 'data.com', 'callback', {'state': state, 'code': 'code'})
 
         helper = self._helper(oauth2_setup)
-        helper.redirect_from_callback()
+        resp_remember = MagicMock()
+        resp_remember.headers = []
+        helper.redirect_from_callback(resp_remember)
 
         assert oauth2.toolkit.response.status == 302
         assert oauth2.toolkit.response.location == came_from
