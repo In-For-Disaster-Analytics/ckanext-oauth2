@@ -594,9 +594,9 @@ class TestOAuth2Plugin:
         helper = self._helper(oauth2_setup)
         token = {'access_token': 'OAUTH_TOKEN'}
 
-        with pytest.raises(InsecureTransportError):
-            with patch('ckanext.oauth2.oauth2.OAuth2Session') as oauth2_session_mock:
-                oauth2_session_mock().get.side_effect = SSLError('(Caused by SSLError(SSLError("bad handshake: Error([(\'SSL routines\', \'tls_process_server_certificate\', \'certificate verify failed\')],)",),)')
+        with pytest.raises(SSLError):
+            with patch('ckanext.oauth2.oauth2.requests.get') as requests_get_mock:
+                requests_get_mock.side_effect = SSLError('(Caused by SSLError(SSLError("bad handshake: Error([(\'SSL routines\', \'tls_process_server_certificate\', \'certificate verify failed\')],)",),)')
                 helper.identify(token)
 
     @patch.dict(os.environ, {'OAUTHLIB_INSECURE_TRANSPORT': ''})
