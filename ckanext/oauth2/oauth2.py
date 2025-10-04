@@ -171,13 +171,13 @@ class OAuth2Helper(object):
     def find_user(self, username: Optional[str], email: Optional[str]) -> Optional[model.User]:
         if username:
             users = model.User.by_name(username)
-            if isinstance(users, model.User):
+            if users is not None and not isinstance(users, list):
                 return users
             elif isinstance(users, list) and len(users) == 1:
                 return users[0]
         if email:
             users = model.User.by_email(email)
-            if isinstance(users, model.User):
+            if users is not None and not isinstance(users, list):
                 return users
             elif isinstance(users, list) and len(users) == 1:
                 return users[0]
@@ -217,10 +217,10 @@ class OAuth2Helper(object):
                 user = self.find_user(username, email)
             except ValueError:
                 profile_response = self.query_profile_api_legacy(token) if self.legacy_idm else self.query_profile_api_default(token)
-                user = self.create_user_object(profile_response.json()['result'])
+                user = self.create_user_object(profile_response.json())
         else:
             profile_response = self.query_profile_api_legacy(token) if self.legacy_idm else self.query_profile_api_default(token)
-            user_profile = profile_response.json()['result']
+            user_profile = profile_response.json()
             try:
                 user = self.find_user(user_profile.get(self.profile_api_user_field), user_profile.get(self.profile_api_mail_field))
             except ValueError:
