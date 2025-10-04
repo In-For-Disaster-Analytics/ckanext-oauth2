@@ -119,6 +119,8 @@ class TestOAuth2Plugin:
 
         if jwt_enable:
             helper.jwt_enable = True
+            helper.jwt_algorithm = 'HS256'
+            helper.jwt_secret = 'test-secret'
 
         return helper
 
@@ -544,20 +546,20 @@ class TestOAuth2Plugin:
 
         helper = self._helper(oauth2_setup, jwt_enable=True)
         token = OAUTH2TOKEN
-        user_data ={oauth2_setup['user_field']: 'test_user', oauth2_setup['email_field']: 'test@test.com'}
+        user_data = {'tapis/username': 'test_user', 'tapis/email': 'test@test.com'}
 
         oauth2.jwt.decode.return_value = user_data
 
         oauth2.model.Session = MagicMock()
         user = MagicMock()
-        user.name = None
-        user.email = None
+        user.name = 'test_user'
+        user.email = 'test@test.com'
         oauth2.model.User = MagicMock(return_value=user)
-        oauth2.model.User.by_email = MagicMock(return_value=[user])
+        oauth2.model.User.by_name = MagicMock(return_value=user)
 
         returned_username = helper.identify(token)
 
-        assert user_data[oauth2_setup['user_field']] == returned_username
+        assert 'test_user' == returned_username
 
         oauth2.model.Session.add.assert_called_once_with(user)
         oauth2.model.Session.commit.assert_called_once()
