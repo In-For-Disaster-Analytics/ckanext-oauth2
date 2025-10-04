@@ -36,7 +36,7 @@ from requests.exceptions import SSLError
 OAUTH2TOKEN = {
     'access_token': 'token',
     'token_type': 'Bearer',
-    'expires_in': '3600',
+    'expires_in': 3600,
     'refresh_token': 'refresh_token',
 }
 
@@ -235,6 +235,12 @@ class TestOAuth2Plugin:
     @httpretty.activate
     @patch.dict(os.environ, {'OAUTHLIB_INSECURE_TRANSPORT': 'True'})
     def test_get_token_insecure_enabled(self, oauth2_setup):
+        """Test that OAuth2Helper can retrieve access tokens over HTTP when insecure transport is enabled.
+
+        This test verifies the token exchange works in development/testing environments where HTTPS
+        isn't available. The OAUTHLIB_INSECURE_TRANSPORT environment variable bypasses OAuth2's
+        default HTTPS enforcement.
+        """
         helper = self._helper(oauth2_setup)
         token = OAUTH2TOKEN
         httpretty.register_uri(httpretty.POST, helper.token_endpoint, body=json.dumps(token))
