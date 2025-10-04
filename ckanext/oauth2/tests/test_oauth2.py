@@ -136,7 +136,7 @@ class TestOAuth2Plugin:
             self._helper(oauth2_setup, missing_conf=conf_to_remove)
 
     @patch('ckanext.oauth2.oauth2.OAuth2Session')
-    def test_get_token_with_no_credentials(self, oauth2_setup, oauth2_session_mock):
+    def test_get_token_with_no_credentials(self, oauth2_session_mock, oauth2_setup):
         state = b64encode(json.dumps({'came_from': 'initial-page'}).encode('utf-8'))
         oauth2.toolkit.request = make_request(True, 'data.com', 'callback', {'state': state})
 
@@ -148,7 +148,7 @@ class TestOAuth2Plugin:
 
     @patch('ckanext.oauth2.oauth2.OAuth2Session')
     @patch.dict(os.environ, {'OAUTHLIB_INSECURE_TRANSPORT': ''})
-    def test_get_token(self, oauth2_setup, OAuth2Session):
+    def test_get_token(self, OAuth2Session, oauth2_setup):
         helper = self._helper(oauth2_setup)
         token = OAUTH2TOKEN
         OAuth2Session().fetch_token.return_value = OAUTH2TOKEN
@@ -162,7 +162,7 @@ class TestOAuth2Plugin:
             assert value == retrieved_token[key]
 
     @patch('ckanext.oauth2.oauth2.OAuth2Session')
-    def test_get_token_legacy_idm(self, oauth2_setup, OAuth2Session):
+    def test_get_token_legacy_idm(self, OAuth2Session, oauth2_setup):
         helper = self._helper(oauth2_setup)
         helper.legacy_idm = True
         helper.verify_https = True
