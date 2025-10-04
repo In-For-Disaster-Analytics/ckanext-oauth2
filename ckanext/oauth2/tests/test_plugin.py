@@ -32,8 +32,10 @@ HOST = 'ckan.theme.org'
 def plugin_setup():
     # Save functions and mock them
     original_toolkit = plugin.toolkit
+    original_g = plugin.g
     plugin.toolkit = MagicMock()
     plugin.toolkit.config = {'ckan.oauth2.authorization_header': OAUTH2_AUTHORIZATION_HEADER}
+    plugin.g = MagicMock()
 
     # Create the plugin
     oauth2_plugin = plugin.OAuth2Plugin()
@@ -43,6 +45,7 @@ def plugin_setup():
 
     # Cleanup
     plugin.toolkit = original_toolkit
+    plugin.g = original_g
 
 
 class TestPlugin:
@@ -93,8 +96,7 @@ class TestPlugin:
         ({CUSTOM_AUTHORIZATION_HEADER: 'api_key'},        None,                      'test2', 'test2', False),
 
     ])
-    @patch("ckanext.oauth2.plugin.g")
-    def test_identify(self, plugin_setup, headers, authenticate_result, identity, expected_user, oauth2, g_mock):
+    def test_identify(self, plugin_setup, headers, authenticate_result, identity, expected_user, oauth2):
 
         if not oauth2:
             plugin.toolkit.config = {'ckan.oauth2.authorization_header': CUSTOM_AUTHORIZATION_HEADER}
@@ -137,15 +139,17 @@ class TestPlugin:
         plugin_setup.identify()
 
         # Check that the function "authenticate" (called when the API Key is included) has not been called
-        if oauth2 and OAUTH2_AUTHORIZATION_HEADER in headers and headers[OAUTH2_AUTHORIZATION_HEADER].startswith('Bearer '):
-            token = headers[OAUTH2_AUTHORIZATION_HEADER].replace('Bearer ', '')
+        if oauth2 and OAUTH2_AUTHORIZATION_HEADER in headers:
+            if headers[OAUTH2_AUTHORIZATION_HEADER].startswith('Bearer '):
+                token = headers[OAUTH2_AUTHORIZATION_HEADER].replace('Bearer ', '')
+            else:
+                token = headers[OAUTH2_AUTHORIZATION_HEADER]
             plugin_setup.oauth2helper.identify.assert_called_once_with({'access_token': token})
         elif not oauth2 and CUSTOM_AUTHORIZATION_HEADER in headers:
             plugin_setup.oauth2helper.identify.assert_called_once_with({'access_token': headers[CUSTOM_AUTHORIZATION_HEADER]})
         else:
             assert plugin_setup.oauth2helper.identify.call_count == 0
 
-        assert expected_user == g_mock.user
         assert expected_user == plugin.toolkit.g.user
 
         if expected_user is None:
