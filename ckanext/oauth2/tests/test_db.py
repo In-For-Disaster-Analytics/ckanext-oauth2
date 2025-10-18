@@ -17,27 +17,31 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with OAuth2 CKAN Extension.  If not, see <http://www.gnu.org/licenses/>.
 
-import unittest
-import ckanext.oauth2.db as db
+from unittest.mock import MagicMock
 
-from mock import MagicMock
+import pytest
+from ckanext.oauth2 import db
 
 
-class DBTest(unittest.TestCase):
+@pytest.fixture
+def db_setup():
+    # Restart database initial status
+    db.UserToken = None
 
-    def setUp(self):
-        # Restart databse initial status
-        db.UserToken = None 
+    # Create mocks
+    original_sa = db.sa
+    db.sa = MagicMock()
 
-        # Create mocks
-        self._sa = db.sa
-        db.sa = MagicMock()
+    yield
 
-    def tearDown(self):
-        db.UserToken = None
-        db.sa = self._sa
+    # Cleanup
+    db.UserToken = None
+    db.sa = original_sa
 
-    def test_initdb_not_initialized(self):
+
+class TestDB:
+
+    def test_initdb_not_initialized(self, db_setup):
 
         # Call the function
         model = MagicMock()
@@ -47,7 +51,7 @@ class DBTest(unittest.TestCase):
         db.sa.Table.assert_called_once()
         model.meta.mapper.assert_called_once()
 
-    def test_initdb_initialized(self):
+    def test_initdb_initialized(self, db_setup):
         db.UserToken = MagicMock()
 
         # Call the function
@@ -55,5 +59,5 @@ class DBTest(unittest.TestCase):
         db.init_db(model)
 
         # Assert that table method has been called
-        self.assertEquals(0, db.sa.Table.call_count)
-        self.assertEquals(0, model.meta.mapper.call_count)
+        assert db.sa.Table.call_count == 0
+        assert model.meta.mapper.call_count == 0
