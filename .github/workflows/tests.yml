@@ -78,7 +78,7 @@ jobs:
         run: pip install pytest pytest-cov httpretty parameterized pytest-factoryboy
       - name: Run tests
         run: |
-          CKAN_INI=test.ini pytest
+          CKAN_INI=test.ini pytest ckanext/oauth2/tests
 
       # - name: Upload coverage to Coveralls
       #   if: success()
