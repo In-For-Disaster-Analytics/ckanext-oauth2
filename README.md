@@ -6,6 +6,24 @@ The OAuth2 extension allows site visitors to login through an OAuth2 server.
 
 Plans to support CKAN 2.10 and 2.11 are underway.
 
+## Installation
+
+### Database Setup
+
+After installing the extension, you need to initialize the database tables:
+
+```bash
+ckan -c /etc/ckan/default/ckan.ini db upgrade -p oauth2
+```
+
+This command will create the necessary `user_token` table for storing OAuth2 tokens.
+
+To revert the database changes:
+
+```bash
+ckan -c /etc/ckan/default/ckan.ini db downgrade -p oauth2
+```
+
 ## Configuration
 
 ### Environment Variables

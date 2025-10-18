@@ -51,9 +51,8 @@ def init_db(model):
             extend_existing=True
         )
 
-        # Create the table only if it does not exist
-        if model.meta.metadata.bind:
-            user_token_table.create(model.meta.metadata.bind, checkfirst=True)
+        # Note: Table creation is handled by Alembic migrations
+        # Run: ckan db upgrade -p oauth2
 
         model.meta.mapper(UserToken, user_token_table)
 
