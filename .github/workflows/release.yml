@@ -1,0 +1,45 @@
+name: Release
+on:
+  push:
+    branches: ["main", "release"]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run in dry-run mode (no actual release)"
+        required: false
+        type: boolean
+        default: true
+jobs:
+  test:
+    uses: ./.github/workflows/tests.yml
+
+  create-release:
+    name: Create Release
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install python-semantic-release
+        run: pip install python-semantic-release
+      - name: Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            echo "Running in dry-run mode..."
+            semantic-release version --no-commit --no-tag --no-push --no-vcs-release
+          else
+            semantic-release version
+          fi
