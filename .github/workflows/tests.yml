@@ -80,8 +80,7 @@ jobs:
         run: python setup.py develop
 
       - name: Install test dependencies
-        run: pip install pytest pytest-cov httpretty parameterized
-
+        run: pip install pytest pytest-cov httpretty parameterized pytest-factorybox
       - name: Run tests
         run: |
           CKAN_INI=test.ini pytest
