@@ -79,6 +79,9 @@ jobs:
       - name: Install extension
         run: python setup.py develop
 
+      - name: Install test dependencies
+        run: pip install pytest pytest-cov httpretty parameterized
+
       - name: Run tests
         run: |
           CKAN_INI=test.ini pytest
