@@ -27,8 +27,6 @@ __description__ = 'OAuth2 support for CKAN'
 
 
 PYPI_RST_FILTERS = (
-    # Remove travis ci badge
-    (r'.*travis-ci\.org/.*', ''),
     # Remove pypip.in badges
     (r'.*pypip\.in/.*', ''),
     (r'.*crate\.io/.*', ''),
@@ -41,7 +39,6 @@ def rst(filename):
     Load rst file and sanitize it for PyPI.
     Remove unsupported github tags:
      - code-block directive
-     - travis ci build badge
     '''
     content = open(filename).read()
     for regex, replacement in PYPI_RST_FILTERS:
@@ -73,17 +70,11 @@ setup(
     include_package_data=True,
     zip_safe=False,
     setup_requires=[
-        'nose>=1.3.0'
     ],
     install_requires=[
-        'requests-oauthlib==0.8.0',
-        'pyjwt==1.7.1',
     ],
     tests_require=[
-        'parameterized',
-        'selenium==3.5.0'
     ],
-    test_suite='nosetests',
     entry_points={
         'ckan.plugins': [
             'oauth2 = ckanext.oauth2.plugin:OAuth2Plugin',

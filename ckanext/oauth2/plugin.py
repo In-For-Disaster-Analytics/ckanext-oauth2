@@ -91,6 +91,7 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
     def __init__(self, name=None):
         '''Store the OAuth 2 client configuration'''
         log.debug('Init OAuth2 extension')
+        self.name = name or 'oauth2'
 
         db.init_db(model)
         log.debug(f'Creating UserToken...')
@@ -118,33 +119,29 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
             return None
 
     def identify(self):
-        log.debug('identify')
+        log.debug('Starting identify process')
 
         def _refresh_and_save_token(user_name):
+            log.debug(f'Refreshing token for user {user_name}')
             new_token = self.oauth2helper.refresh_token(user_name)
             if new_token:
                 toolkit.g.usertoken = new_token
+                log.debug(f'Token refreshed for user {user_name}')
 
         environ = toolkit.request.environ
         apikey = toolkit.request.headers.get(self.authorization_header, '')
         user_name = None
 
+        if apikey:
 
-        if self.authorization_header == "authorization":
             if apikey.startswith('Bearer '):
                 apikey = apikey[7:].strip()
-            else:
-                apikey = ''
-
-        # This API Key is not the one of CKAN, it's the one provided by the OAuth2 Service
-        if apikey:
             try:
                 token = {'access_token': apikey}
                 user_name = self.oauth2helper.identify(token)
-                log.debug(f'user_name1: {user_name}')
+                log.debug(f'Auth success: {user_name}')
             except Exception as e:
-                log.debug(f'Auth error:')
-                log.debug(e)
+                log.debug(f'Auth error: {e}')
                 pass
 
         # If the authentication via API fails, we can still log in the user using session.

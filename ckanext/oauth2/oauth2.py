@@ -19,28 +19,24 @@
 # along with OAuth2 CKAN Extension.  If not, see <http://www.gnu.org/licenses/>.
 
 
-import base64
-import ckan.model as model
-from ckanext.oauth2.db import UserToken
-import ckanext.oauth2.db as db
+from base64 import b64encode, b64decode, urlsafe_b64encode
+from typing import Optional
 import json
 import logging
-from six.moves.urllib.parse import urljoin
 import os
-from typing import Optional
-from base64 import b64encode, b64decode
-from ckan.plugins import toolkit
-from oauthlib.oauth2 import InsecureTransportError
-import requests
-from requests_oauthlib import OAuth2Session
-import six
-
 import jwt
+import six
+import requests
+from six.moves.urllib.parse import urljoin
+from oauthlib.oauth2 import InsecureTransportError
+from requests_oauthlib import OAuth2Session
 
+
+from ckan.plugins import toolkit # type: ignore
+from flask import jsonify
+import ckan.model as model
+import ckanext.oauth2.db as db
 from .constants import *
-from flask import Flask, request, redirect, session, url_for, jsonify
-
-
 
 log = logging.getLogger(__name__)
 
@@ -64,6 +60,9 @@ class OAuth2Helper(object):
             self.verify_https = os.environ["REQUESTS_CA_BUNDLE"].strip()
 
         self.jwt_enable = six.text_type(os.environ.get('CKAN_OAUTH2_JWT_ENABLE', toolkit.config.get('ckan.oauth2.jwt.enable',''))).strip().lower() in ("true", "1", "on")
+        self.jwt_algorithm = six.text_type(os.environ.get('CKAN_OAUTH2_JWT_ALGORITHM', toolkit.config.get('ckan.oauth2.jwt.algorithm', 'HS256'))).strip()
+        self.jwt_secret = six.text_type(os.environ.get('CKAN_OAUTH2_JWT_SECRET', toolkit.config.get('ckan.oauth2.jwt.secret', ''))).strip()
+        self.jwt_public_key = six.text_type(os.environ.get('CKAN_OAUTH2_JWT_PUBLIC_KEY', toolkit.config.get('ckan.oauth2.jwt.public_key', ''))).strip()
 
         self.legacy_idm = six.text_type(os.environ.get('CKAN_OAUTH2_LEGACY_IDM', toolkit.config.get('ckan.oauth2.legacy_idm', ''))).strip().lower() in ("true", "1", "on")
         self.authorization_endpoint = six.text_type(os.environ.get('CKAN_OAUTH2_AUTHORIZATION_ENDPOINT', toolkit.config.get('ckan.oauth2.authorization_endpoint', ''))).strip()
@@ -124,12 +123,12 @@ class OAuth2Helper(object):
 
         if self.legacy_idm:
             # This is only required for Keyrock v6 and v5
-            headers['Authorization'] = 'Basic %s' % base64.urlsafe_b64encode(
+            headers['Authorization'] = 'Basic %s' % urlsafe_b64encode(
                 (f'{self.client_id}:{self.client_secret}').encode()
             )
 
         try:
-            authorization_response = toolkit.request.url.replace("http:", "https:", 1)
+            authorization_response = toolkit.request.url
             token = oauth.fetch_token(self.token_endpoint,
                                       client_id=self.client_id,
                                       client_secret=self.client_secret,
@@ -172,13 +171,13 @@ class OAuth2Helper(object):
     def find_user(self, username: Optional[str], email: Optional[str]) -> Optional[model.User]:
         if username:
             users = model.User.by_name(username)
-            if isinstance(users, model.User):
+            if users is not None and not isinstance(users, list):
                 return users
             elif isinstance(users, list) and len(users) == 1:
                 return users[0]
         if email:
             users = model.User.by_email(email)
-            if isinstance(users, model.User):
+            if users is not None and not isinstance(users, list):
                 return users
             elif isinstance(users, list) and len(users) == 1:
                 return users[0]
@@ -205,17 +204,23 @@ class OAuth2Helper(object):
     def identify(self, token):
         if self.jwt_enable:
             access_token = token['access_token']
-            token_decoded = jwt.decode(access_token, verify=False)
+            # Check if we have the appropriate key for verification
+            has_key = (self.jwt_algorithm.startswith('HS') and self.jwt_secret) or \
+                     (self.jwt_algorithm.startswith(('RS', 'ES')) and self.jwt_public_key)
+            if not has_key:
+                raise ValueError("JWT secret or public key not configured for algorithm %s" % self.jwt_algorithm)
+            token_decoded = self._decode_jwt(access_token, verify=True)
+
             email = token_decoded.get('tapis/email')
             username = token_decoded.get('tapis/username')
             try:
                 user = self.find_user(username, email)
             except ValueError:
                 profile_response = self.query_profile_api_legacy(token) if self.legacy_idm else self.query_profile_api_default(token)
-                user = self.create_user_object(profile_response.json()['result'])
+                user = self.create_user_object(profile_response.json())
         else:
             profile_response = self.query_profile_api_legacy(token) if self.legacy_idm else self.query_profile_api_default(token)
-            user_profile = profile_response.json()['result']
+            user_profile = profile_response.json()
             try:
                 user = self.find_user(user_profile.get(self.profile_api_user_field), user_profile.get(self.profile_api_mail_field))
             except ValueError:
@@ -273,10 +278,45 @@ class OAuth2Helper(object):
         else:
             return None
 
+    def _decode_jwt(self, token, verify=True):
+        """
+        Decode JWT token using configured algorithm and secret/public key.
+        """
+        log.debug(f"token: {token}")
+        log.debug(f"verify: {verify}")
+        log.debug(f"jwt_algorithm: {self.jwt_algorithm}")
+        log.debug(f"jwt_secret: {self.jwt_secret}")
+        log.debug(f"jwt_public_key: {self.jwt_public_key}")
+        try:
+            if verify:
+                # Determine the key to use based on algorithm
+                if self.jwt_algorithm.startswith('HS'):
+                    # Symmetric algorithms (HS256, HS384, HS512) use shared secret
+                    if self.jwt_secret:
+                        return jwt.decode(token, self.jwt_secret, algorithms=[self.jwt_algorithm], verify=True)
+                    else:
+                        log.error('JWT secret not configured for symmetric algorithm %s, rejecting token', self.jwt_algorithm)
+                        raise ValueError('JWT secret not configured for symmetric algorithm')
+                elif self.jwt_algorithm.startswith('RS') or self.jwt_algorithm.startswith('ES'):
+                    # Asymmetric algorithms (RS256, ES256, etc.) use public key
+                    if self.jwt_public_key:
+                        return jwt.decode(token, self.jwt_public_key, algorithms=[self.jwt_algorithm], verify=True)
+                    else:
+                        log.error('JWT public key not configured for asymmetric algorithm %s, rejecting token', self.jwt_algorithm)
+                        raise ValueError('JWT public key not configured for asymmetric algorithm')
+                else:
+                    log.error('Unknown JWT algorithm %s, rejecting token', self.jwt_algorithm)
+                    raise ValueError('Unknown JWT algorithm')
+            else:
+                return jwt.decode(token, verify=True)
+        except (jwt.DecodeError, jwt.InvalidTokenError) as e:
+            log.error('JWT decode error: %s', str(e))
+            raise
+
     def update_token(self, user_name, token):
         try:
             user_token = db.UserToken.by_user_name(user_name=user_name)
-        except AttributeError as e:
+        except AttributeError:
             user_token = None
         # Create the user if it does not exist
         if not user_token:
@@ -289,7 +329,7 @@ class OAuth2Helper(object):
         if 'expires_in' in token:
             user_token.expires_in = token['expires_in']
         else:
-            access_token = jwt.decode(user_token.access_token, verify=False)
+            access_token = self._decode_jwt(user_token.access_token, verify=True)
             user_token.expires_in = access_token['exp'] - access_token['iat']
 
         model.Session.add(user_token)

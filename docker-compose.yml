@@ -1,0 +1,28 @@
+services:
+  db:
+    build:
+      context: postgresql/
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+      POSTGRES_HOST_AUTH_METHOD: trust
+      CKAN_DB_USER: ckan_default
+      CKAN_DB_PASSWORD: pass
+      CKAN_DB: ckan_test
+      DATASTORE_DB_USER: datastore_default
+      DATASTORE_DB_PASSWORD: pass
+      DATASTORE_DB: datastore_test
+    restart: unless-stopped
+    ports:
+      - '5432:5432'
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-U', 'postgres', '-d', 'postgres']
+
+  solr:
+    image: ckan/ckan-solr:2.9-solr9-spatial
+    restart: unless-stopped
+    ports:
+      - '8983:8983'
+    healthcheck:
+      test: ['CMD', 'wget', '-qO', '/dev/null', 'http://localhost:8983/solr/']
