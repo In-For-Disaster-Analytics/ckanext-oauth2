@@ -167,7 +167,7 @@ wheels = [
 
 [[package]]
 name = "ckanext-oauth2"
-version = "0.7.1"
+version = "1.0.0b3"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
