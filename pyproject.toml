@@ -86,3 +86,18 @@ dev = [
 [tool.setuptools.packages.find]
 include = ["ckanext*"]
 namespaces = true
+
+[tool.semantic_release]
+version_toml = ["pyproject.toml:project.version"]
+build_command = "pip install build && python -m build"
+major_on_zero = false
+branch = "main"
+
+[tool.semantic_release.branches.main]
+match = "main"
+prerelease = false
+
+[tool.semantic_release.branches.release]
+match = "release"
+prerelease = true
+prerelease_token = "beta"
