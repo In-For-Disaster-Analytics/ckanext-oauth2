@@ -73,7 +73,7 @@ jobs:
           ckan -c test-core.ini db init
 
       - name: Install extension
-        run: python setup.py develop
+        run: pip install -e .
 
       - name: Install test dependencies
         run: pip install pytest pytest-cov httpretty parameterized pytest-factoryboy
