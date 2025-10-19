@@ -80,7 +80,9 @@ class OAuth2Helper(object):
         self.profile_api_groupmembership_field = six.text_type(os.environ.get('CKAN_OAUTH2_PROFILE_API_GROUPMEMBERSHIP_FIELD', toolkit.config.get('ckan.oauth2.profile_api_groupmembership_field', ''))).strip()
         self.sysadmin_group_name = six.text_type(os.environ.get('CKAN_OAUTH2_SYSADMIN_GROUP_NAME', toolkit.config.get('ckan.oauth2.sysadmin_group_name', ''))).strip()
 
-        self.redirect_uri = urljoin(urljoin(toolkit.config.get('ckan.site_url', 'http://localhost:5000'), toolkit.config.get('ckan.root_path')), REDIRECT_URL)
+        site_url = toolkit.config.get('ckan.site_url', 'http://localhost:5000')
+        root_path = toolkit.config.get('ckan.root_path')
+        self.redirect_uri = urljoin(urljoin(site_url, root_path), REDIRECT_URL)
 
         missing = [key for key in REQUIRED_CONF if getattr(self, key, "") == ""]
         if missing:

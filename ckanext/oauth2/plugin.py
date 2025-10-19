@@ -92,7 +92,7 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
         '''Store the OAuth 2 client configuration'''
         log.debug('Init OAuth2 extension')
         self.name = name or 'oauth2'
-        self.oauth2helper = OAuth2Helper()
+        self.oauth2helper = None
 
     def get_helpers(self):
         return {
@@ -168,6 +168,9 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
     def update_config(self, config):
         # Update our configuration
         log.debug('update config...')
+
+        # Initialize OAuth2Helper after config is loaded
+        self.oauth2helper = OAuth2Helper()
 
         # Initialize database models (must be called after database engine is ready)
         db.init_db()
