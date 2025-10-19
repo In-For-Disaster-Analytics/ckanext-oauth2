@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.0.0-beta.7 (2025-10-19)
+
+### Bug Fixes
+
+- Force release
+  ([`f6b7149`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/f6b71491ea25e78703cccdb87ee1b8a96d834d61))
+
+### Refactoring
+
+- **oauth2**: Require config parameter in OAuth2Helper
+  ([`6451bd9`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/6451bd9f09feb9b0968aaada2c7c9c532fcb2c1c))
+
+
 ## v1.0.0-beta.6 (2025-10-19)
 
 ### Features
