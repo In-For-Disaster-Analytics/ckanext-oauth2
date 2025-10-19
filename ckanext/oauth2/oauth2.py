@@ -112,6 +112,7 @@ class OAuth2Helper(object):
         return toolkit.redirect_to(auth_url)#.encode('utf-8'))
 
     def get_token(self):
+        log.debug(f'get_token: OAUTHLIB_INSECURE_TRANSPORT={os.environ.get("OAUTHLIB_INSECURE_TRANSPORT", "not set")}')
         oauth = OAuth2Session(self.client_id, redirect_uri=self.redirect_uri, scope=self.scope)
         oauth = self._compliance_fix(oauth)  # Apply compliance fixes
 
@@ -129,11 +130,14 @@ class OAuth2Helper(object):
 
         try:
             authorization_response = toolkit.request.url
+            log.debug(f'get_token: authorization_response={authorization_response}')
+            log.debug(f'get_token: token_endpoint={self.token_endpoint}')
             token = oauth.fetch_token(self.token_endpoint,
                                       client_id=self.client_id,
                                       client_secret=self.client_secret,
                                       authorization_response=authorization_response,
                                       include_client_id=True)
+            log.debug(f'get_token: token received successfully')
         except requests.exceptions.SSLError as e:
             # TODO search a better way to detect invalid certificates
             if "verify failed" in six.text_type(e):
