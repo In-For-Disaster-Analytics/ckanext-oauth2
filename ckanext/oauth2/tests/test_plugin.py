@@ -34,7 +34,17 @@ def plugin_setup():
     original_toolkit = plugin.toolkit
     original_g = plugin.g
     plugin.toolkit = MagicMock()
-    plugin.toolkit.config = {'ckan.oauth2.authorization_header': OAUTH2_AUTHORIZATION_HEADER}
+    plugin.toolkit.config = {
+        'ckan.oauth2.authorization_header': OAUTH2_AUTHORIZATION_HEADER,
+        'ckan.oauth2.authorization_endpoint': 'https://test.oauth.org/authorize',
+        'ckan.oauth2.token_endpoint': 'https://test.oauth.org/token',
+        'ckan.oauth2.client_id': 'test-client-id',
+        'ckan.oauth2.client_secret': 'test-client-secret',
+        'ckan.oauth2.profile_api_url': 'https://test.oauth.org/user',
+        'ckan.oauth2.profile_api_user_field': 'id',
+        'ckan.oauth2.profile_api_mail_field': 'email',
+        'ckan.site_url': f'http://{HOST}:5000',
+    }
     plugin.g = MagicMock()
 
     # Create the plugin
@@ -99,7 +109,17 @@ class TestPlugin:
     def test_identify(self, plugin_setup, headers, authenticate_result, identity, expected_user, oauth2):
 
         if not oauth2:
-            plugin.toolkit.config = {'ckan.oauth2.authorization_header': CUSTOM_AUTHORIZATION_HEADER}
+            plugin.toolkit.config = {
+                'ckan.oauth2.authorization_header': CUSTOM_AUTHORIZATION_HEADER,
+                'ckan.oauth2.authorization_endpoint': 'https://test.oauth.org/authorize',
+                'ckan.oauth2.token_endpoint': 'https://test.oauth.org/token',
+                'ckan.oauth2.client_id': 'test-client-id',
+                'ckan.oauth2.client_secret': 'test-client-secret',
+                'ckan.oauth2.profile_api_url': 'https://test.oauth.org/user',
+                'ckan.oauth2.profile_api_user_field': 'id',
+                'ckan.oauth2.profile_api_mail_field': 'email',
+                'ckan.site_url': f'http://{HOST}:5000',
+            }
             plugin_setup.update_config(plugin.toolkit.config)
 
         self._set_identity(identity)

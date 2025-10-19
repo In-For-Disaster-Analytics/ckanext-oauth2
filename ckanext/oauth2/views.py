@@ -8,13 +8,16 @@ from ckan.common import session
 import ckan.lib.helpers as helpers
 import ckan.plugins.toolkit as toolkit
 import urllib.parse
-from ckanext.oauth2.oauth2 import OAuth2Helper
+import ckan.plugins as plugins
 
 log = logging.getLogger(__name__)
 # service_proxy = Blueprint("service_proxy", __name__)
 oauth2 = Blueprint("oauth2", __name__)
 
-oauth2helper = OAuth2Helper()
+def _get_oauth2helper():
+    """Get OAuth2Helper from the loaded plugin"""
+    plugin = plugins.get_plugin('oauth2')
+    return plugin.oauth2helper
 
 def _get_previous_page(default_page):
     if 'came_from' not in toolkit.request.params:
@@ -47,11 +50,12 @@ def _get_previous_page(default_page):
 def login():
     log.debug('login')
     came_from_url = _get_previous_page(constants.INITIAL_PAGE)
-    return oauth2helper.challenge(came_from_url)
+    return _get_oauth2helper().challenge(came_from_url)
 
 @oauth2.route('/oauth2/callback')
 def callback():
     try:
+        oauth2helper = _get_oauth2helper()
         token = oauth2helper.get_token()
         user_name = oauth2helper.identify(token)
         response = oauth2helper.remember(user_name)

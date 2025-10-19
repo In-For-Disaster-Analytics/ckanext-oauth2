@@ -53,36 +53,40 @@ REQUIRED_CONF = ("authorization_endpoint", "token_endpoint", "client_id", "clien
 
 class OAuth2Helper(object):
 
-    def __init__(self):
+    def __init__(self, config):
+        # Config is required - should be passed from plugin's update_config()
+        cfg = config
 
         self.verify_https = os.environ.get('OAUTHLIB_INSECURE_TRANSPORT', '') == ""
         if self.verify_https and os.environ.get("REQUESTS_CA_BUNDLE", "").strip() != "":
             self.verify_https = os.environ["REQUESTS_CA_BUNDLE"].strip()
 
-        self.jwt_enable = six.text_type(os.environ.get('CKAN_OAUTH2_JWT_ENABLE', toolkit.config.get('ckan.oauth2.jwt.enable',''))).strip().lower() in ("true", "1", "on")
-        self.jwt_algorithm = six.text_type(os.environ.get('CKAN_OAUTH2_JWT_ALGORITHM', toolkit.config.get('ckan.oauth2.jwt.algorithm', 'HS256'))).strip()
-        self.jwt_secret = six.text_type(os.environ.get('CKAN_OAUTH2_JWT_SECRET', toolkit.config.get('ckan.oauth2.jwt.secret', ''))).strip()
-        self.jwt_public_key = six.text_type(os.environ.get('CKAN_OAUTH2_JWT_PUBLIC_KEY', toolkit.config.get('ckan.oauth2.jwt.public_key', ''))).strip()
+        self.jwt_enable = six.text_type(os.environ.get('CKAN_OAUTH2_JWT_ENABLE', cfg.get('ckan.oauth2.jwt.enable',''))).strip().lower() in ("true", "1", "on")
+        self.jwt_algorithm = six.text_type(os.environ.get('CKAN_OAUTH2_JWT_ALGORITHM', cfg.get('ckan.oauth2.jwt.algorithm', 'HS256'))).strip()
+        self.jwt_secret = six.text_type(os.environ.get('CKAN_OAUTH2_JWT_SECRET', cfg.get('ckan.oauth2.jwt.secret', ''))).strip()
+        self.jwt_public_key = six.text_type(os.environ.get('CKAN_OAUTH2_JWT_PUBLIC_KEY', cfg.get('ckan.oauth2.jwt.public_key', ''))).strip()
 
-        self.legacy_idm = six.text_type(os.environ.get('CKAN_OAUTH2_LEGACY_IDM', toolkit.config.get('ckan.oauth2.legacy_idm', ''))).strip().lower() in ("true", "1", "on")
-        self.authorization_endpoint = six.text_type(os.environ.get('CKAN_OAUTH2_AUTHORIZATION_ENDPOINT', toolkit.config.get('ckan.oauth2.authorization_endpoint', ''))).strip()
-        self.token_endpoint = six.text_type(os.environ.get('CKAN_OAUTH2_TOKEN_ENDPOINT', toolkit.config.get('ckan.oauth2.token_endpoint', ''))).strip()
-        self.profile_api_url = six.text_type(os.environ.get('CKAN_OAUTH2_PROFILE_API_URL', toolkit.config.get('ckan.oauth2.profile_api_url', ''))).strip()
-        self.client_id = six.text_type(os.environ.get('CKAN_OAUTH2_CLIENT_ID', toolkit.config.get('ckan.oauth2.client_id', ''))).strip()
-        self.client_secret = six.text_type(os.environ.get('CKAN_OAUTH2_CLIENT_SECRET', toolkit.config.get('ckan.oauth2.client_secret', ''))).strip()
-        self.scope = six.text_type(os.environ.get('CKAN_OAUTH2_SCOPE', toolkit.config.get('ckan.oauth2.scope', ''))).strip()
-        self.rememberer_name = six.text_type(os.environ.get('CKAN_OAUTH2_REMEMBER_NAME', toolkit.config.get('ckan.oauth2.rememberer_name', 'auth_tkt'))).strip()
-        self.profile_api_user_field = six.text_type(os.environ.get('CKAN_OAUTH2_PROFILE_API_USER_FIELD', toolkit.config.get('ckan.oauth2.profile_api_user_field', ''))).strip()
-        self.profile_api_fullname_field = six.text_type(os.environ.get('CKAN_OAUTH2_PROFILE_API_FULLNAME_FIELD', toolkit.config.get('ckan.oauth2.profile_api_fullname_field', ''))).strip()
-        self.profile_api_firstname_field = six.text_type(os.environ.get('CKAN_OAUTH2_PROFILE_API_FIRSTNAME_FIELD', toolkit.config.get('ckan.oauth2.profile_api_firstname_field', ''))).strip()
-        self.profile_api_lastname_field = six.text_type(os.environ.get('CKAN_OAUTH2_PROFILE_API_LASTNAME_FIELD', toolkit.config.get('ckan.oauth2.profile_api_lastname_field', ''))).strip()
-        self.profile_api_mail_field = six.text_type(os.environ.get('CKAN_OAUTH2_PROFILE_API_MAIL_FIELD', toolkit.config.get('ckan.oauth2.profile_api_mail_field', ''))).strip()
-        self.profile_api_groupmembership_field = six.text_type(os.environ.get('CKAN_OAUTH2_PROFILE_API_GROUPMEMBERSHIP_FIELD', toolkit.config.get('ckan.oauth2.profile_api_groupmembership_field', ''))).strip()
-        self.sysadmin_group_name = six.text_type(os.environ.get('CKAN_OAUTH2_SYSADMIN_GROUP_NAME', toolkit.config.get('ckan.oauth2.sysadmin_group_name', ''))).strip()
+        self.legacy_idm = six.text_type(os.environ.get('CKAN_OAUTH2_LEGACY_IDM', cfg.get('ckan.oauth2.legacy_idm', ''))).strip().lower() in ("true", "1", "on")
+        self.authorization_endpoint = six.text_type(os.environ.get('CKAN_OAUTH2_AUTHORIZATION_ENDPOINT', cfg.get('ckan.oauth2.authorization_endpoint', ''))).strip()
+        self.token_endpoint = six.text_type(os.environ.get('CKAN_OAUTH2_TOKEN_ENDPOINT', cfg.get('ckan.oauth2.token_endpoint', ''))).strip()
+        self.profile_api_url = six.text_type(os.environ.get('CKAN_OAUTH2_PROFILE_API_URL', cfg.get('ckan.oauth2.profile_api_url', ''))).strip()
+        self.client_id = six.text_type(os.environ.get('CKAN_OAUTH2_CLIENT_ID', cfg.get('ckan.oauth2.client_id', ''))).strip()
+        self.client_secret = six.text_type(os.environ.get('CKAN_OAUTH2_CLIENT_SECRET', cfg.get('ckan.oauth2.client_secret', ''))).strip()
+        self.scope = six.text_type(os.environ.get('CKAN_OAUTH2_SCOPE', cfg.get('ckan.oauth2.scope', ''))).strip()
+        self.rememberer_name = six.text_type(os.environ.get('CKAN_OAUTH2_REMEMBER_NAME', cfg.get('ckan.oauth2.rememberer_name', 'auth_tkt'))).strip()
+        self.profile_api_user_field = six.text_type(os.environ.get('CKAN_OAUTH2_PROFILE_API_USER_FIELD', cfg.get('ckan.oauth2.profile_api_user_field', ''))).strip()
+        self.profile_api_fullname_field = six.text_type(os.environ.get('CKAN_OAUTH2_PROFILE_API_FULLNAME_FIELD', cfg.get('ckan.oauth2.profile_api_fullname_field', ''))).strip()
+        self.profile_api_firstname_field = six.text_type(os.environ.get('CKAN_OAUTH2_PROFILE_API_FIRSTNAME_FIELD', cfg.get('ckan.oauth2.profile_api_firstname_field', ''))).strip()
+        self.profile_api_lastname_field = six.text_type(os.environ.get('CKAN_OAUTH2_PROFILE_API_LASTNAME_FIELD', cfg.get('ckan.oauth2.profile_api_lastname_field', ''))).strip()
+        self.profile_api_mail_field = six.text_type(os.environ.get('CKAN_OAUTH2_PROFILE_API_MAIL_FIELD', cfg.get('ckan.oauth2.profile_api_mail_field', ''))).strip()
+        self.profile_api_groupmembership_field = six.text_type(os.environ.get('CKAN_OAUTH2_PROFILE_API_GROUPMEMBERSHIP_FIELD', cfg.get('ckan.oauth2.profile_api_groupmembership_field', ''))).strip()
+        self.sysadmin_group_name = six.text_type(os.environ.get('CKAN_OAUTH2_SYSADMIN_GROUP_NAME', cfg.get('ckan.oauth2.sysadmin_group_name', ''))).strip()
 
-        site_url = toolkit.config.get('ckan.site_url', 'http://localhost:5000')
-        root_path = toolkit.config.get('ckan.root_path')
+        site_url = cfg.get('ckan.site_url', 'http://localhost:5000')
+        root_path = cfg.get('ckan.root_path')
+        log.debug(f'OAuth2Helper.__init__: site_url={site_url}, root_path={root_path}')
         self.redirect_uri = urljoin(urljoin(site_url, root_path), REDIRECT_URL)
+        log.debug(f'OAuth2Helper.__init__: redirect_uri={self.redirect_uri}')
 
         missing = [key for key in REQUIRED_CONF if getattr(self, key, "") == ""]
         if missing:

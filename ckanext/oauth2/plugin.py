@@ -170,8 +170,8 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
         log.debug('update config...')
         log.debug(f'Config values - site_url: {config.get("ckan.site_url")}, root_path: {config.get("ckan.root_path")}')
 
-        # Initialize OAuth2Helper after config is loaded
-        self.oauth2helper = OAuth2Helper()
+        # Initialize OAuth2Helper with the loaded config
+        self.oauth2helper = OAuth2Helper(config)
         log.debug(f'OAuth2Helper initialized - redirect_uri: {self.oauth2helper.redirect_uri}')
 
         # Initialize database models (must be called after database engine is ready)

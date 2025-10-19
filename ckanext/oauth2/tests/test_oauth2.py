@@ -112,7 +112,7 @@ class TestOAuth2Plugin:
         if missing_conf is not None:
             del oauth2.toolkit.config[missing_conf]
 
-        helper = OAuth2Helper()
+        helper = OAuth2Helper(oauth2.toolkit.config)
 
         if fullname_field:
             helper.profile_api_fullname_field = oauth2_setup['fullname_field']
