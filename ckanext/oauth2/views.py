@@ -64,14 +64,15 @@ def callback():
         response = oauth2helper.redirect_from_callback(response)
     except Exception as e:
         # If the callback is called with an error, we must show the message
-        error_description = toolkit.request.GET.get('error_description')
+        error_description = toolkit.request.args.get('error_description')
         if not error_description:
-            if e.message:
-                error_description = e.message
-            elif hasattr(e, 'description') and e.description:
+            # Try to get error message from exception
+            if hasattr(e, 'description') and e.description:
                 error_description = e.description
             elif hasattr(e, 'error') and e.error:
                 error_description = e.error
+            elif str(e):
+                error_description = str(e)
             else:
                 error_description = type(e).__name__
         response = jsonify()
