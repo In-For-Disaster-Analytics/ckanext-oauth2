@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-beta.8 (2025-10-19)
+
+### Features
+
+- **jwt**: Add cryptography dependency for RS256 support
+  ([`617586f`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/617586f681202501884b87ba7379100a7534cf6d))
+
+
 ## v1.0.0-beta.7 (2025-10-19)
 
 ### Bug Fixes
