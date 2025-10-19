@@ -64,7 +64,11 @@ class OAuth2Helper(object):
         self.jwt_enable = six.text_type(os.environ.get('CKAN_OAUTH2_JWT_ENABLE', cfg.get('ckan.oauth2.jwt.enable',''))).strip().lower() in ("true", "1", "on")
         self.jwt_algorithm = six.text_type(os.environ.get('CKAN_OAUTH2_JWT_ALGORITHM', cfg.get('ckan.oauth2.jwt.algorithm', 'HS256'))).strip()
         self.jwt_secret = six.text_type(os.environ.get('CKAN_OAUTH2_JWT_SECRET', cfg.get('ckan.oauth2.jwt.secret', ''))).strip()
-        self.jwt_public_key = six.text_type(os.environ.get('CKAN_OAUTH2_JWT_PUBLIC_KEY', cfg.get('ckan.oauth2.jwt.public_key', ''))).strip()
+        # Replace literal \n with actual newlines for PEM format
+        jwt_public_key_raw = six.text_type(os.environ.get('CKAN_OAUTH2_JWT_PUBLIC_KEY', cfg.get('ckan.oauth2.jwt.public_key', ''))).strip()
+        self.jwt_public_key = jwt_public_key_raw.replace('\\n', '\n') if jwt_public_key_raw else ''
+        if self.jwt_public_key:
+            log.debug(f'JWT public key loaded, starts with: {self.jwt_public_key[:50]}...')
 
         self.legacy_idm = six.text_type(os.environ.get('CKAN_OAUTH2_LEGACY_IDM', cfg.get('ckan.oauth2.legacy_idm', ''))).strip().lower() in ("true", "1", "on")
         self.authorization_endpoint = six.text_type(os.environ.get('CKAN_OAUTH2_AUTHORIZATION_ENDPOINT', cfg.get('ckan.oauth2.authorization_endpoint', ''))).strip()

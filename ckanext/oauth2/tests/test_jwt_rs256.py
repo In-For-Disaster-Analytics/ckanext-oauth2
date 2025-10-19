@@ -118,3 +118,45 @@ class TestJWTRS256:
         # Try to decode with different public key - should fail
         with pytest.raises(jwt.InvalidSignatureError):
             jwt.decode(token, public_pem2, algorithms=['RS256'])
+
+    def test_pem_key_with_escaped_newlines(self):
+        """Test that PEM keys with literal \\n are properly converted"""
+        from cryptography.hazmat.primitives.asymmetric import rsa
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.backends import default_backend
+
+        # Generate RSA key pair
+        private_key = rsa.generate_private_key(
+            public_exponent=65537,
+            key_size=2048,
+            backend=default_backend()
+        )
+
+        public_key = private_key.public_key()
+        public_pem = public_key.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+
+        # Simulate how the key might come from environment variable (with literal \n)
+        pem_with_escaped_newlines = public_pem.decode('utf-8').replace('\n', '\\n')
+
+        # Convert back to proper PEM format
+        pem_fixed = pem_with_escaped_newlines.replace('\\n', '\n')
+
+        # Verify the fixed PEM can be used to decode JWT
+        private_pem = private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.TraditionalOpenSSL,
+            encryption_algorithm=serialization.NoEncryption()
+        )
+
+        payload = {
+            'sub': 'test_user',
+            'exp': datetime.utcnow() + timedelta(hours=1)
+        }
+        token = jwt.encode(payload, private_pem, algorithm='RS256')
+
+        # This should work with the fixed PEM
+        decoded = jwt.decode(token, pem_fixed.encode('utf-8'), algorithms=['RS256'])
+        assert decoded['sub'] == 'test_user'
