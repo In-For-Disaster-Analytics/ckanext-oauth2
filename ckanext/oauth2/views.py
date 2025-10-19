@@ -4,6 +4,7 @@ import logging
 from flask import Blueprint, jsonify, make_response
 import logging
 from ckanext.oauth2 import constants
+from ckanext.oauth2.oauth2 import get_came_from
 from ckan.common import session
 import ckan.lib.helpers as helpers
 import ckan.plugins.toolkit as toolkit
@@ -77,7 +78,7 @@ def callback():
                 error_description = type(e).__name__
         response = jsonify()
         response.status_code = 302
-        redirect_url = oauth2.get_came_from(toolkit.request.params.get('state'))
+        redirect_url = get_came_from(toolkit.request.params.get('state'))
         redirect_url = '/' if redirect_url == constants.INITIAL_PAGE else redirect_url
         response.location = redirect_url
 
