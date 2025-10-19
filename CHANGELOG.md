@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v1.0.0-beta.9 (2025-10-19)
+
+### Bug Fixes
+
+- **jwt**: Convert escaped newlines in PEM public key
+  ([`8035dbb`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/8035dbbd87c4f48db85752fda2296aba04fb8fdd))
+
+- **views**: Use request.args instead of request.GET for Flask
+  ([`7f3e0a4`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/7f3e0a47a0ca4c87f996221080d5bd05e072d8ec))
+
+
 ## v1.0.0-beta.8 (2025-10-19)
 
 ### Features
