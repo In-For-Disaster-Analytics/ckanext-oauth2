@@ -34,6 +34,7 @@ dependencies = [
     "certifi>=2024.7.4",
     "ckan>=2.11.3",
     "click==8.1.7",
+    "cryptography>=43.0.0",
     "dominate==2.9.1",
     "feedgen==1.0.0",
     "flask==3.0.3",
