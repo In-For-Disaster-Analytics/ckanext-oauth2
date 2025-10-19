@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-beta.6 (2025-10-19)
+
+### Features
+
+- **plugin**: Add debug logging for OAuth2Helper initialization
+  ([`d47314b`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/d47314b747b9eb5996260fbcdd33e8a113375ea5))
+
+
 ## v1.0.0-beta.5 (2025-10-19)
 
 ### Bug Fixes
