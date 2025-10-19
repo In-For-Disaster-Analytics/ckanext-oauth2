@@ -366,3 +366,4 @@ class OAuth2Helper(object):
             return token
         else:
             log.warn('User %s has no refresh token' % user_name)
+
