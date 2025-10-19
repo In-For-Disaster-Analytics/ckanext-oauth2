@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v1.0.0-beta.5 (2025-10-19)
+
+### Bug Fixes
+
+- **oauth2**: Remove invalid session.save() call and add debug logging
+  ([`616c39a`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/616c39a677a0464d8ca15d0733e242e02f734ea2))
+
+- **plugin**: Initialize OAuth2Helper in update_config
+  ([`7fe1ab3`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/7fe1ab3e5ebf2193e840b0e007610f8595efb966))
+
+
 ## v1.0.0-beta.4 (2025-10-18)
 
 ### Bug Fixes
