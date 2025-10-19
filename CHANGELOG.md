@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v1.0.0-beta.11 (2025-10-19)
+
+### Bug Fixes
+
+- Force 10
+  ([`f0c57b1`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/f0c57b1a4f547ecfe3396421a51b80da2cde1da8))
+
+- Force release 10
+  ([`ee357ac`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/ee357ac859d41c5a84122f7914ccaa7365808b7d))
+
+
 ## v1.0.0-beta.10 (2025-10-19)
 
 ### Bug Fixes
