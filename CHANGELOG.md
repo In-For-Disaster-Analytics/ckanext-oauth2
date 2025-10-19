@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-beta.10 (2025-10-19)
+
+### Bug Fixes
+
+- **views**: Import get_came_from function correctly
+  ([`95295ee`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/95295ee3ca7d40dd674c3c7edbb11df3e71b245d))
+
+
 ## v1.0.0-beta.9 (2025-10-19)
 
 ### Bug Fixes
