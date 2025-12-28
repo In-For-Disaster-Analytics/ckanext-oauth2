@@ -54,6 +54,7 @@ def make_request(secure, host, path, params):
     request.host = host
     request.host_url = 'http%s://%s' % (secure, host)
     request.params = params
+    request.args = params  # Support both deprecated params and new args
     return request
 
 
@@ -851,7 +852,11 @@ class TestOAuth2Plugin:
 
         helper = self._helper(oauth2_setup)
         resp_remember = MagicMock()
-        resp_remember.headers = []
+        # Mock headers to behave like Flask Headers object
+        mock_headers = MagicMock()
+        mock_headers.keys.return_value = []
+        mock_headers.getlist.return_value = []
+        resp_remember.headers = mock_headers
         result = helper.redirect_from_callback(resp_remember)
 
         assert mock_response.status_code == 302
