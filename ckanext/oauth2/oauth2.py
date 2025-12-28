@@ -317,29 +317,36 @@ class OAuth2Helper(object):
 
         This method simply delegates to another IIdentifier plugin if configured.
         '''
-        log.debug('Repoze OAuth remember')
+        log.debug(f'Repoze OAuth remember: user={user_name}')
         environ = toolkit.request.environ
         rememberer = self._get_rememberer(environ)
+        log.debug(f'Rememberer plugin: {rememberer}')
         identity = {'repoze.who.userid': user_name}
         headers = rememberer.remember(environ, identity)
+        log.debug(f'Auth headers from rememberer: {list(headers)}')
         response = jsonify()
         for header, value in headers:
             response.headers[header] = value
+        log.debug(f'Response headers after remember: {dict(response.headers)}')
         return response
 
     def redirect_from_callback(self, resp_remember):
         '''Redirect to the callback URL after a successful authentication.'''
         state = toolkit.request.args.get('state')
         came_from = get_came_from(state)
+        log.debug(f'Redirect came_from: {came_from}')
 
+        log.debug(f'Headers before copy: {dict(resp_remember.headers)}')
         response = jsonify()
         response.status_code = 302
         # Copy all headers including multiple Set-Cookie headers
         for header in resp_remember.headers.keys():
             for value in resp_remember.headers.getlist(header):
+                log.debug(f'Adding header: {header}={value}')
                 response.headers.add(header, value)
         response.headers['location'] = came_from
         response.autocorrect_location_header = False
+        log.debug(f'Final redirect response headers: {dict(response.headers)}')
         return response
 
 
