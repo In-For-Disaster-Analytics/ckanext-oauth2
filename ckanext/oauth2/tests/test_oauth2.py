@@ -734,6 +734,34 @@ class TestOAuth2Plugin:
             assert 'jwt_user' == returned_username
             oauth2.model.Session.add.assert_called_once_with(user)
 
+    @httpretty.activate
+    def test_identify_profile_api_field_mismatch(self, oauth2_setup):
+        """Test that missing required fields in profile API response causes failure"""
+        helper = self._helper(oauth2_setup, jwt_enable=False)
+        token = OAUTH2TOKEN
+
+        # Profile API response uses 'tapis/username' but we're configured to look for 'username'
+        # This should fail because the configured field names don't match the response
+        profile_data = {
+            'tapis/username': 'test_user',  # Wrong field name
+            'tapis/email': 'test@example.com',  # Wrong field name
+            'tapis/fullname': 'Test User'  # Wrong field name
+        }
+
+        httpretty.register_uri(
+            httpretty.GET,
+            oauth2_setup['profile_api_url'],
+            body=json.dumps(profile_data)
+        )
+
+        oauth2.model.Session = MagicMock()
+        oauth2.model.User.by_name = MagicMock(return_value=None)
+        oauth2.model.User.by_email = MagicMock(return_value=[])
+
+        # This should raise ValueError because username/email are not found
+        with pytest.raises(ValueError, match="Username or email is required"):
+            helper.identify(token)
+
     @pytest.mark.parametrize("user_info", [
         {'error': 'invalid_token', 'error_description': 'Error Description'},
         {'error': 'another_error'},
