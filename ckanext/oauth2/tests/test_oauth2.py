@@ -271,38 +271,6 @@ class TestOAuth2Plugin:
         with pytest.raises(MissingTokenError):
             helper.get_token()
 
-    @pytest.mark.parametrize("headers", [
-        {},
-        [('Set-Cookie', 'cookie1="cookie1val"; Path=/')],
-        [('Set-Cookie', 'cookie1="cookie1val"; Path=/'), ('Set-Cookie', 'cookie12="cookie2val"; Path=/')],
-    ])
-    @patch('ckanext.oauth2.oauth2.jsonify')
-    def test_remember(self, mock_jsonify, oauth2_setup, headers):
-        user_name = 'user_name'
-
-        # Configure the mocks
-        mock_response = MagicMock()
-        mock_jsonify.return_value = mock_response
-
-        environ = MagicMock()
-        plugins = MagicMock()
-        authenticator = MagicMock()
-        authenticator.remember = MagicMock(return_value=headers)
-
-        environ.get = MagicMock(return_value=plugins)
-        oauth2.toolkit.request.environ = environ
-        plugins.get = MagicMock(return_value=authenticator)
-
-        # Call the function
-        helper = self._helper(oauth2_setup)
-        result = helper.remember(user_name)
-
-        # Check that the remember method has been called properly
-        authenticator.remember.assert_called_once_with(environ, {'repoze.who.userid': user_name})
-
-        for header, value in headers:
-            mock_response.headers.__setitem__.assert_any_call(header, value)
-
     def test_challenge(self, oauth2_setup):
         helper = self._helper(oauth2_setup)
 
@@ -366,7 +334,7 @@ class TestOAuth2Plugin:
         oauth2.model.User.by_email = MagicMock(return_value=[user])
 
         # Call identify
-        returned_username = helper.identify(OAUTH2TOKEN)
+        returned_username, returned_user = helper.identify(OAUTH2TOKEN)
 
         # Verify the user was found and returned
         assert returned_username == username
@@ -424,7 +392,7 @@ class TestOAuth2Plugin:
         oauth2.model.User.by_email = MagicMock(return_value=[])
 
         # Call identify
-        returned_username = helper.identify(OAUTH2TOKEN)
+        returned_username, returned_user = helper.identify(OAUTH2TOKEN)
 
         # Verify the user was created
         assert returned_username == username
@@ -479,7 +447,7 @@ class TestOAuth2Plugin:
         oauth2.model.User.by_email = MagicMock(return_value=[user])
 
         # Call identify
-        returned_username = helper.identify(OAUTH2TOKEN)
+        returned_username, returned_user = helper.identify(OAUTH2TOKEN)
 
         # Verify the user was found and returned
         assert returned_username == username
@@ -533,7 +501,7 @@ class TestOAuth2Plugin:
         oauth2.model.User.by_email = MagicMock(return_value=[])
 
         # Call identify
-        returned_username = helper.identify(OAUTH2TOKEN)
+        returned_username, returned_user = helper.identify(OAUTH2TOKEN)
 
         # Verify the user was created
         assert returned_username == username
@@ -562,7 +530,7 @@ class TestOAuth2Plugin:
         oauth2.model.User = MagicMock(return_value=user)
         oauth2.model.User.by_name = MagicMock(return_value=user)
 
-        returned_username = helper.identify(token)
+        returned_username, returned_user = helper.identify(token)
 
         assert 'test_user' == returned_username
 
@@ -589,7 +557,7 @@ class TestOAuth2Plugin:
         oauth2.model.User = MagicMock(return_value=user)
         oauth2.model.User.by_name = MagicMock(return_value=user)
 
-        returned_username = helper.identify(token)
+        returned_username, returned_user = helper.identify(token)
 
         assert 'tapis_user' == returned_username
 
@@ -629,7 +597,7 @@ class TestOAuth2Plugin:
             oauth2.model.User.by_name = MagicMock(return_value=None)
             oauth2.model.User.by_email = MagicMock(return_value=[])
 
-            returned_username = helper.identify(token)
+            returned_username, returned_user = helper.identify(token)
 
             assert 'test_user' == returned_username
             # Profile API should have been called to get complementary data
@@ -657,7 +625,7 @@ class TestOAuth2Plugin:
             oauth2.model.User.by_name = MagicMock(return_value=None)
             oauth2.model.User.by_email = MagicMock(return_value=[])
 
-            returned_username = helper.identify(token)
+            returned_username, returned_user = helper.identify(token)
 
             # Should still work with JWT data only
             assert 'test_user' == returned_username
@@ -693,7 +661,7 @@ class TestOAuth2Plugin:
             oauth2.model.User.by_name = MagicMock(return_value=None)
             oauth2.model.User.by_email = MagicMock(return_value=[])
 
-            returned_username = helper.identify(token)
+            returned_username, returned_user = helper.identify(token)
 
             assert 'test_user' == returned_username
             # Verify user was created with merged data
@@ -729,7 +697,7 @@ class TestOAuth2Plugin:
             oauth2.model.User.by_name = MagicMock(return_value=None)
             oauth2.model.User.by_email = MagicMock(return_value=[])
 
-            returned_username = helper.identify(token)
+            returned_username, returned_user = helper.identify(token)
 
             # JWT username should be used, not profile username
             assert 'jwt_user' == returned_username

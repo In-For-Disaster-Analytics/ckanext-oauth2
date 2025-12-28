@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import logging
-from flask import Blueprint, jsonify, make_response
+from flask import Blueprint, jsonify, make_response, redirect
 import logging
 from ckanext.oauth2 import constants
 from ckanext.oauth2.oauth2 import get_came_from
@@ -58,32 +58,32 @@ def callback():
     try:
         oauth2helper = _get_oauth2helper()
         token = oauth2helper.get_token()
-        user_name = oauth2helper.identify(token)
-        response = oauth2helper.remember(user_name)
-        log.debug(f'usr:{user_name}')
+        # log.debug(f'token:{token}')
+        user_name,user_obj = oauth2helper.identify(token)
+        oauth2helper.log_user_into_ckan(user_obj)
         oauth2helper.update_token(user_name, token)
-        response = oauth2helper.redirect_from_callback(response)
+        response = oauth2helper.redirect_from_callback()
     except Exception as e:
+
+        session.save()
+
         # If the callback is called with an error, we must show the message
         error_description = toolkit.request.args.get('error_description')
         if not error_description:
-            # Try to get error message from exception
-            if hasattr(e, 'description') and e.description:
+            if str(e):
+                error_description = str(e)
+            elif hasattr(e, 'description') and e.description:
                 error_description = e.description
             elif hasattr(e, 'error') and e.error:
                 error_description = e.error
-            elif str(e):
-                error_description = str(e)
             else:
                 error_description = type(e).__name__
-        response = jsonify()
-        response.status_code = 302
+        log.error(f'login error: {error_description}')
         redirect_url = get_came_from(toolkit.request.args.get('state'))
         redirect_url = '/' if redirect_url == constants.INITIAL_PAGE else redirect_url
-        response.location = redirect_url
-        log.error(f'OAuth2 callback error: {error_description}')
+        response = redirect(redirect_url)
         helpers.flash_error(error_description)
-        # make_response((content, 302, headers))
+
     return response
 
 def get_blueprints():

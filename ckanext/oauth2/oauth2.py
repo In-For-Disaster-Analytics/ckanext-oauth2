@@ -34,6 +34,7 @@ from requests_oauthlib import OAuth2Session
 
 from ckan.plugins import toolkit # type: ignore
 from flask import jsonify
+from ckan.common import session, login_user
 import ckan.model as model
 import ckanext.oauth2.db as db
 from .constants import *
@@ -304,31 +305,11 @@ class OAuth2Helper(object):
         model.Session.add(user)
         model.Session.commit()
         model.Session.remove()
-        return user.name
+        return user.name, user
 
-
-    def _get_rememberer(self, environ):
-        plugins = environ.get('repoze.who.plugins', {})
-        return plugins.get(self.rememberer_name)
-
-    def remember(self, user_name):
-        '''
-        Remember the authenticated identity.
-
-        This method simply delegates to another IIdentifier plugin if configured.
-        '''
-        log.debug(f'Repoze OAuth remember: user {user_name}')
-        environ = toolkit.request.environ
-        rememberer = self._get_rememberer(environ)
-        log.debug(f'Rememberer plugin: {rememberer}')
-        identity = {'repoze.who.userid': user_name}
-        headers = rememberer.remember(environ, identity)
-        log.debug(f'Auth headers from rememberer: {list(headers)}')
-        response = jsonify()
-        for header, value in headers:
-            response.headers[header] = value
-        log.debug(f'Response headers after remember: {dict(response.headers)}')
-        return response
+    def log_user_into_ckan(self, user_obj):
+        # Log the user in and remember the session
+        login_user(user_obj, remember=True)
 
     def redirect_from_callback(self, resp_remember):
         '''Redirect to the callback URL after a successful authentication.'''
