@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.0.0-beta.14 (2025-12-28)
+
+### Bug Fixes
+
+- **oauth2**: Preserve authentication cookies in callback redirect
+  ([`712fa46`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/712fa46061ebcb3c6f7c7413e5696f1d7bbba894))
+
+### Testing
+
+- **oauth2**: Update tests for request.args migration
+  ([`d45844f`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/d45844fc5c01aae835808967502279079aa36b94))
+
+
 ## v1.0.0-beta.13 (2025-12-28)
 
 ### Bug Fixes
