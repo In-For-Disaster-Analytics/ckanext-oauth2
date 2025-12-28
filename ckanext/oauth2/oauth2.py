@@ -317,7 +317,7 @@ class OAuth2Helper(object):
 
         This method simply delegates to another IIdentifier plugin if configured.
         '''
-        log.debug(f'Repoze OAuth remember: user={user_name}')
+        log.debug(f'Repoze OAuth remember: user {user_name}')
         environ = toolkit.request.environ
         rememberer = self._get_rememberer(environ)
         log.debug(f'Rememberer plugin: {rememberer}')
