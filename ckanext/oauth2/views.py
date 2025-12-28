@@ -81,7 +81,7 @@ def callback():
         redirect_url = get_came_from(toolkit.request.params.get('state'))
         redirect_url = '/' if redirect_url == constants.INITIAL_PAGE else redirect_url
         response.location = redirect_url
-
+        log.error(f'OAuth2 callback error: {error_description}')
         helpers.flash_error(error_description)
         # make_response((content, 302, headers))
     return response
