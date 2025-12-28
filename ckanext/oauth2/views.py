@@ -21,10 +21,10 @@ def _get_oauth2helper():
     return plugin.oauth2helper
 
 def _get_previous_page(default_page):
-    if 'came_from' not in toolkit.request.params:
+    if 'came_from' not in toolkit.request.args:
         came_from_url = toolkit.request.headers.get('Referer', default_page)
     else:
-        came_from_url = toolkit.request.params.get('came_from', default_page)
+        came_from_url = toolkit.request.args.get('came_from', default_page)
 
     came_from_url_parsed = urllib.parse.urlparse(came_from_url)
 
@@ -78,7 +78,7 @@ def callback():
                 error_description = type(e).__name__
         response = jsonify()
         response.status_code = 302
-        redirect_url = get_came_from(toolkit.request.params.get('state'))
+        redirect_url = get_came_from(toolkit.request.args.get('state'))
         redirect_url = '/' if redirect_url == constants.INITIAL_PAGE else redirect_url
         response.location = redirect_url
         log.error(f'OAuth2 callback error: {error_description}')

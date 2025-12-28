@@ -329,13 +329,15 @@ class OAuth2Helper(object):
 
     def redirect_from_callback(self, resp_remember):
         '''Redirect to the callback URL after a successful authentication.'''
-        state = toolkit.request.params.get('state')
+        state = toolkit.request.args.get('state')
         came_from = get_came_from(state)
 
         response = jsonify()
         response.status_code = 302
-        for header, value in resp_remember.headers:
-            response.headers[header] = value
+        # Copy all headers including multiple Set-Cookie headers
+        for header in resp_remember.headers.keys():
+            for value in resp_remember.headers.getlist(header):
+                response.headers.add(header, value)
         response.headers['location'] = came_from
         response.autocorrect_location_header = False
         return response
