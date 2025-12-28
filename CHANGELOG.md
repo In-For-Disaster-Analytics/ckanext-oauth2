@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-beta.13 (2025-12-28)
+
+### Bug Fixes
+
+- Print log
+  ([`a7a5f07`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/a7a5f078a107b7075d17f2bff390d2c526acdffd))
+
+
 ## v1.0.0-beta.12 (2025-12-28)
 
 ### Features
