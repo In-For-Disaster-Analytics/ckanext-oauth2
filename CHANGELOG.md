@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.0.0-beta.12 (2025-12-28)
+
+### Features
+
+- **oauth2**: Add configurable JWT field names and complementary profile merging
+  ([`bb8abbe`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/bb8abbe52df953a5c75f3e9a00dd402e37ead14a))
+
+### Testing
+
+- Add test for profile API field mismatch handling
+  ([`838da07`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/838da0769963f5eef5c43dd362c24a30fd7c5e1e))
+
+
 ## v1.0.0-beta.11 (2025-10-19)
 
 ### Bug Fixes
