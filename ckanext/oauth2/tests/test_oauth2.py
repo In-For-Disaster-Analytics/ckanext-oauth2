@@ -550,7 +550,7 @@ class TestOAuth2Plugin:
 
         helper = self._helper(oauth2_setup, jwt_enable=True)
         token = OAUTH2TOKEN
-        user_data = {'tapis/username': 'test_user', 'tapis/email': 'test@test.com'}
+        user_data = {'username': 'test_user', 'email': 'test@test.com'}
 
         oauth2.jwt.decode.return_value = user_data
 
@@ -568,6 +568,171 @@ class TestOAuth2Plugin:
         oauth2.model.Session.add.assert_called_once_with(user)
         oauth2.model.Session.commit.assert_called_once()
         oauth2.model.Session.remove.assert_called_once()
+
+    def test_identify_jwt_with_tapis_fields(self, oauth2_setup):
+        """Test JWT identification with Tapis-style namespaced fields"""
+        helper = self._helper(oauth2_setup, jwt_enable=True)
+        # Configure JWT field names for Tapis
+        helper.jwt_username_field = 'tapis/username'
+        helper.jwt_email_field = 'tapis/email'
+
+        token = OAUTH2TOKEN
+        user_data = {'tapis/username': 'tapis_user', 'tapis/email': 'tapis@test.com'}
+
+        oauth2.jwt.decode.return_value = user_data
+
+        oauth2.model.Session = MagicMock()
+        user = MagicMock()
+        user.name = 'tapis_user'
+        user.email = 'tapis@test.com'
+        oauth2.model.User = MagicMock(return_value=user)
+        oauth2.model.User.by_name = MagicMock(return_value=user)
+
+        returned_username = helper.identify(token)
+
+        assert 'tapis_user' == returned_username
+
+        oauth2.model.Session.add.assert_called_once_with(user)
+        oauth2.model.Session.commit.assert_called_once()
+        oauth2.model.Session.remove.assert_called_once()
+
+    def test_identify_jwt_username_only_profile_provides_all(self, oauth2_setup):
+        """Test JWT with only username, profile API provides all data - user doesn't exist"""
+        helper = self._helper(oauth2_setup, jwt_enable=True)
+        token = OAUTH2TOKEN
+
+        # JWT only has username
+        jwt_data = {'username': 'test_user'}
+        oauth2.jwt.decode.return_value = jwt_data
+
+        # Profile API has all data
+        profile_data = {
+            oauth2_setup['user_field']: 'test_user',
+            oauth2_setup['email_field']: 'test@example.com',
+            oauth2_setup['fullname_field']: 'Test User'
+        }
+
+        # Mock profile API response
+        with patch('ckanext.oauth2.oauth2.OAuth2Helper.query_profile_api_default') as mock_profile:
+            mock_response = MagicMock()
+            mock_response.json.return_value = profile_data
+            mock_profile.return_value = mock_response
+
+            oauth2.model.Session = MagicMock()
+            user = MagicMock()
+            user.name = 'test_user'
+            user.email = 'test@example.com'
+            user.fullname = 'Test User'
+            oauth2.model.User = MagicMock(return_value=user)
+            # User doesn't exist - find_user should raise ValueError
+            oauth2.model.User.by_name = MagicMock(return_value=None)
+            oauth2.model.User.by_email = MagicMock(return_value=[])
+
+            returned_username = helper.identify(token)
+
+            assert 'test_user' == returned_username
+            # Profile API should have been called to get complementary data
+            mock_profile.assert_called_once()
+
+    def test_identify_jwt_username_only_profile_fails(self, oauth2_setup):
+        """Test JWT with only username, profile API fails - user doesn't exist"""
+        helper = self._helper(oauth2_setup, jwt_enable=True)
+        token = OAUTH2TOKEN
+
+        # JWT only has username
+        jwt_data = {'username': 'test_user'}
+        oauth2.jwt.decode.return_value = jwt_data
+
+        # Mock profile API to fail
+        with patch('ckanext.oauth2.oauth2.OAuth2Helper.query_profile_api_default') as mock_profile:
+            mock_profile.side_effect = Exception("Profile API unavailable")
+
+            oauth2.model.Session = MagicMock()
+            user = MagicMock()
+            user.name = 'test_user'
+            user.email = None
+            oauth2.model.User = MagicMock(return_value=user)
+            # User doesn't exist
+            oauth2.model.User.by_name = MagicMock(return_value=None)
+            oauth2.model.User.by_email = MagicMock(return_value=[])
+
+            returned_username = helper.identify(token)
+
+            # Should still work with JWT data only
+            assert 'test_user' == returned_username
+            mock_profile.assert_called_once()
+
+    def test_identify_jwt_username_only_profile_all_data_username_match(self, oauth2_setup):
+        """Test JWT with username, profile API with all data where usernames match - user doesn't exist"""
+        helper = self._helper(oauth2_setup, jwt_enable=True)
+        token = OAUTH2TOKEN
+
+        # JWT has username
+        jwt_data = {'username': 'test_user'}
+        oauth2.jwt.decode.return_value = jwt_data
+
+        # Profile API has all data with matching username
+        profile_data = {
+            oauth2_setup['user_field']: 'test_user',  # Same username
+            oauth2_setup['email_field']: 'test@example.com',
+            oauth2_setup['fullname_field']: 'Test User'
+        }
+
+        with patch('ckanext.oauth2.oauth2.OAuth2Helper.query_profile_api_default') as mock_profile:
+            mock_response = MagicMock()
+            mock_response.json.return_value = profile_data
+            mock_profile.return_value = mock_response
+
+            oauth2.model.Session = MagicMock()
+            user = MagicMock()
+            user.name = 'test_user'
+            user.email = 'test@example.com'
+            user.fullname = 'Test User'
+            oauth2.model.User = MagicMock(return_value=user)
+            oauth2.model.User.by_name = MagicMock(return_value=None)
+            oauth2.model.User.by_email = MagicMock(return_value=[])
+
+            returned_username = helper.identify(token)
+
+            assert 'test_user' == returned_username
+            # Verify user was created with merged data
+            oauth2.model.Session.add.assert_called_once_with(user)
+
+    def test_identify_jwt_username_only_profile_all_data_username_differs(self, oauth2_setup):
+        """Test JWT with username, profile API with different username - JWT takes priority"""
+        helper = self._helper(oauth2_setup, jwt_enable=True)
+        token = OAUTH2TOKEN
+
+        # JWT has username
+        jwt_data = {'username': 'jwt_user'}
+        oauth2.jwt.decode.return_value = jwt_data
+
+        # Profile API has all data with DIFFERENT username
+        profile_data = {
+            oauth2_setup['user_field']: 'profile_user',  # Different username
+            oauth2_setup['email_field']: 'test@example.com',
+            oauth2_setup['fullname_field']: 'Test User'
+        }
+
+        with patch('ckanext.oauth2.oauth2.OAuth2Helper.query_profile_api_default') as mock_profile:
+            mock_response = MagicMock()
+            mock_response.json.return_value = profile_data
+            mock_profile.return_value = mock_response
+
+            oauth2.model.Session = MagicMock()
+            user = MagicMock()
+            user.name = 'jwt_user'  # JWT username should win
+            user.email = 'test@example.com'  # Email from profile API
+            user.fullname = 'Test User'  # Fullname from profile API
+            oauth2.model.User = MagicMock(return_value=user)
+            oauth2.model.User.by_name = MagicMock(return_value=None)
+            oauth2.model.User.by_email = MagicMock(return_value=[])
+
+            returned_username = helper.identify(token)
+
+            # JWT username should be used, not profile username
+            assert 'jwt_user' == returned_username
+            oauth2.model.Session.add.assert_called_once_with(user)
 
     @pytest.mark.parametrize("user_info", [
         {'error': 'invalid_token', 'error_description': 'Error Description'},
@@ -804,3 +969,119 @@ class TestOAuth2Plugin:
             with patch('ckanext.oauth2.oauth2.OAuth2Session') as oauth2_session_mock:
                 oauth2_session_mock().refresh_token.side_effect = SSLError('unexpected error')
                 helper.refresh_token(username)
+
+    def test_create_user_object_with_username_and_email(self, oauth2_setup):
+        """Test creating user with both username and email"""
+        helper = self._helper(oauth2_setup)
+        user_profile = {
+            oauth2_setup['user_field']: 'testuser',
+            oauth2_setup['email_field']: 'test@example.com'
+        }
+
+        user = helper.create_user_object(user_profile)
+
+        assert user.name == 'testuser'
+        assert user.email == 'test@example.com'
+
+    def test_create_user_object_with_username_only(self, oauth2_setup):
+        """Test creating user with only username"""
+        helper = self._helper(oauth2_setup)
+        user_profile = {
+            oauth2_setup['user_field']: 'testuser'
+        }
+
+        user = helper.create_user_object(user_profile)
+
+        assert user.name == 'testuser'
+        assert user.email is None
+
+    def test_create_user_object_with_email_only(self, oauth2_setup):
+        """Test creating user with only email"""
+        helper = self._helper(oauth2_setup)
+        user_profile = {
+            oauth2_setup['email_field']: 'test@example.com'
+        }
+
+        user = helper.create_user_object(user_profile)
+
+        assert user.name is None
+        assert user.email == 'test@example.com'
+
+    def test_create_user_object_missing_both_username_and_email(self, oauth2_setup):
+        """Test that creating user without username or email raises error"""
+        helper = self._helper(oauth2_setup)
+        user_profile = {}
+
+        with pytest.raises(ValueError) as exc_info:
+            helper.create_user_object(user_profile)
+
+        assert "Username or email is required" in str(exc_info.value)
+
+    def test_create_user_object_with_fullname(self, oauth2_setup):
+        """Test creating user with fullname field"""
+        helper = self._helper(oauth2_setup, fullname_field=True)
+        user_profile = {
+            oauth2_setup['user_field']: 'testuser',
+            oauth2_setup['email_field']: 'test@example.com',
+            oauth2_setup['fullname_field']: 'Test User'
+        }
+
+        user = helper.create_user_object(user_profile)
+
+        assert user.name == 'testuser'
+        assert user.email == 'test@example.com'
+        assert user.fullname == 'Test User'
+
+    def test_create_user_object_with_firstname_lastname(self, oauth2_setup):
+        """Test creating user with firstname and lastname fields"""
+        helper = self._helper(oauth2_setup, fullname_field=False)
+        helper.profile_api_firstname_field = 'first_name'
+        helper.profile_api_lastname_field = 'last_name'
+
+        user_profile = {
+            oauth2_setup['user_field']: 'testuser',
+            oauth2_setup['email_field']: 'test@example.com',
+            'first_name': 'Test',
+            'last_name': 'User'
+        }
+
+        user = helper.create_user_object(user_profile)
+
+        assert user.name == 'testuser'
+        assert user.email == 'test@example.com'
+        assert user.fullname == 'Test User'
+
+    def test_create_user_object_with_tapis_fields(self, oauth2_setup):
+        """Test creating user with Tapis-style JWT fields"""
+        helper = self._helper(oauth2_setup)
+        # Configure JWT field names for Tapis
+        helper.jwt_username_field = 'tapis/username'
+        helper.jwt_email_field = 'tapis/email'
+
+        # Create user profile as if extracted from JWT token
+        user_profile = {
+            oauth2_setup['user_field']: 'tapisuser',
+            oauth2_setup['email_field']: 'tapis@example.com'
+        }
+
+        user = helper.create_user_object(user_profile)
+
+        assert user.name == 'tapisuser'
+        assert user.email == 'tapis@example.com'
+
+    def test_create_user_object_with_nested_jwt_fields(self, oauth2_setup):
+        """Test creating user with nested JWT fields like 'tapis/username'"""
+        helper = self._helper(oauth2_setup)
+
+        # Simulate JWT token with nested fields being mapped to standard fields
+        user_profile = {
+            oauth2_setup['user_field']: 'nesteduser',
+            oauth2_setup['email_field']: 'nested@example.com',
+            oauth2_setup['fullname_field']: 'Nested User'
+        }
+
+        user = helper.create_user_object(user_profile)
+
+        assert user.name == 'nesteduser'
+        assert user.email == 'nested@example.com'
+        assert user.fullname == 'Nested User'

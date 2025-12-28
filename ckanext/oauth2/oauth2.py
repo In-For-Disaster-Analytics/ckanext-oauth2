@@ -70,6 +70,13 @@ class OAuth2Helper(object):
         if self.jwt_public_key:
             log.debug(f'JWT public key loaded, starts with: {self.jwt_public_key[:50]}...')
 
+        # JWT token field names - configurable for different OAuth2 providers
+        self.jwt_username_field = six.text_type(os.environ.get('CKAN_OAUTH2_JWT_USERNAME_FIELD', cfg.get('ckan.oauth2.jwt.username_field', 'username'))).strip()
+        self.jwt_email_field = six.text_type(os.environ.get('CKAN_OAUTH2_JWT_EMAIL_FIELD', cfg.get('ckan.oauth2.jwt.email_field', 'email'))).strip()
+        self.jwt_fullname_field = six.text_type(os.environ.get('CKAN_OAUTH2_JWT_FULLNAME_FIELD', cfg.get('ckan.oauth2.jwt.fullname_field', 'name'))).strip()
+        self.jwt_firstname_field = six.text_type(os.environ.get('CKAN_OAUTH2_JWT_FIRSTNAME_FIELD', cfg.get('ckan.oauth2.jwt.firstname_field', 'given_name'))).strip()
+        self.jwt_lastname_field = six.text_type(os.environ.get('CKAN_OAUTH2_JWT_LASTNAME_FIELD', cfg.get('ckan.oauth2.jwt.lastname_field', 'family_name'))).strip()
+
         self.legacy_idm = six.text_type(os.environ.get('CKAN_OAUTH2_LEGACY_IDM', cfg.get('ckan.oauth2.legacy_idm', ''))).strip().lower() in ("true", "1", "on")
         self.authorization_endpoint = six.text_type(os.environ.get('CKAN_OAUTH2_AUTHORIZATION_ENDPOINT', cfg.get('ckan.oauth2.authorization_endpoint', ''))).strip()
         self.token_endpoint = six.text_type(os.environ.get('CKAN_OAUTH2_TOKEN_ENDPOINT', cfg.get('ckan.oauth2.token_endpoint', ''))).strip()
@@ -215,30 +222,84 @@ class OAuth2Helper(object):
             user.sysadmin = self.sysadmin_group_name in user_profile[self.profile_api_groupmembership_field]
         return user
 
-    def identify(self, token):
-        if self.jwt_enable:
-            access_token = token['access_token']
-            # Check if we have the appropriate key for verification
-            has_key = (self.jwt_algorithm.startswith('HS') and self.jwt_secret) or \
-                     (self.jwt_algorithm.startswith(('RS', 'ES')) and self.jwt_public_key)
-            if not has_key:
-                raise ValueError("JWT secret or public key not configured for algorithm %s" % self.jwt_algorithm)
-            token_decoded = self._decode_jwt(access_token, verify=True)
+    def get_profile_from_jwt(self, access_token):
+        """Extract user profile from JWT token claims.
 
-            email = token_decoded.get('tapis/email')
-            username = token_decoded.get('tapis/username')
-            try:
-                user = self.find_user(username, email)
-            except ValueError:
-                profile_response = self.query_profile_api_legacy(token) if self.legacy_idm else self.query_profile_api_default(token)
-                user = self.create_user_object(profile_response.json())
-        else:
-            profile_response = self.query_profile_api_legacy(token) if self.legacy_idm else self.query_profile_api_default(token)
-            user_profile = profile_response.json()
-            try:
-                user = self.find_user(user_profile.get(self.profile_api_user_field), user_profile.get(self.profile_api_mail_field))
-            except ValueError:
-                user = self.create_user_object(user_profile)
+        Returns a dict with profile fields mapped to the internal profile_api_* field names.
+        """
+        # Check if we have the appropriate key for verification
+        has_key = (self.jwt_algorithm.startswith('HS') and self.jwt_secret) or \
+                 (self.jwt_algorithm.startswith(('RS', 'ES')) and self.jwt_public_key)
+        if not has_key:
+            raise ValueError("JWT secret or public key not configured for algorithm %s" % self.jwt_algorithm)
+
+        token_decoded = self._decode_jwt(access_token, verify=True)
+        user_profile = {}
+
+        # Extract username
+        if self.jwt_username_field and self.jwt_username_field in token_decoded:
+            user_profile[self.profile_api_user_field] = token_decoded[self.jwt_username_field]
+
+        # Extract email
+        if self.jwt_email_field and self.jwt_email_field in token_decoded:
+            user_profile[self.profile_api_mail_field] = token_decoded[self.jwt_email_field]
+
+        # Extract fullname
+        if self.jwt_fullname_field and self.jwt_fullname_field in token_decoded:
+            user_profile[self.profile_api_fullname_field] = token_decoded[self.jwt_fullname_field]
+
+        # Extract firstname
+        if self.jwt_firstname_field and self.jwt_firstname_field in token_decoded:
+            user_profile[self.profile_api_firstname_field] = token_decoded[self.jwt_firstname_field]
+
+        # Extract lastname
+        if self.jwt_lastname_field and self.jwt_lastname_field in token_decoded:
+            user_profile[self.profile_api_lastname_field] = token_decoded[self.jwt_lastname_field]
+
+        return user_profile
+
+    def get_profile_from_api(self, token):
+        """Fetch user profile from the OAuth2 provider's profile/userinfo API.
+
+        Returns the profile response as a dict.
+        """
+        profile_response = self.query_profile_api_legacy(token) if self.legacy_idm else self.query_profile_api_default(token)
+        return profile_response.json()
+
+    def identify(self, token):
+        # Get profile from both JWT token and profile API, then merge
+        user_profile = {}
+
+        if self.jwt_enable:
+            # Extract profile from JWT token
+            access_token = token['access_token']
+            jwt_profile = self.get_profile_from_jwt(access_token)
+            user_profile.update(jwt_profile)
+
+        # Fetch profile from API to get complementary information
+        # API data will not override JWT data if both are present
+        try:
+            api_profile = self.get_profile_from_api(token)
+            # Only add fields that are not already present from JWT
+            for key, value in api_profile.items():
+                if key not in user_profile:
+                    user_profile[key] = value
+        except Exception as e:
+            # If profile API fails and we have JWT data, continue with JWT data only
+            if not self.jwt_enable:
+                raise
+            log.warning(f"Failed to fetch profile from API: {e}. Continuing with JWT data only.")
+
+        # Try to find existing user
+        try:
+            user = self.find_user(
+                user_profile.get(self.profile_api_user_field),
+                user_profile.get(self.profile_api_mail_field)
+            )
+        except ValueError:
+            # Create new user if not found
+            user = self.create_user_object(user_profile)
+
         # Save the user in the database
         model.Session.add(user)
         model.Session.commit()
