@@ -30,8 +30,6 @@ import requests
 from six.moves.urllib.parse import urljoin
 from oauthlib.oauth2 import InsecureTransportError
 from requests_oauthlib import OAuth2Session
-
-
 from ckan.plugins import toolkit # type: ignore
 from flask import jsonify
 from ckan.common import session, login_user
