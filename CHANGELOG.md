@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.0.0-beta.16 (2025-12-29)
+
+### Bug Fixes
+
+- Force
+  ([`aa7a648`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/aa7a648271b84098fb6184e024b6cf2db907cf5f))
+
+### Refactoring
+
+- Replace remember() with login_user() for authentication
+  ([`2002129`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/200212969defe786770fcd407e17fcda551f7213))
+
+
 ## v1.0.0-beta.15 (2025-12-28)
 
 ### Bug Fixes
