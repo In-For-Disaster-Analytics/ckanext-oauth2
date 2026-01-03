@@ -397,6 +397,7 @@ class OAuth2Helper(object):
 
         model.Session.add(user_token)
         model.Session.commit()
+        model.Session.remove()
 
     def refresh_token(self, user_name):
         token = self.get_stored_token(user_name)

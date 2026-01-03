@@ -10,6 +10,7 @@ import ckan.lib.helpers as helpers
 import ckan.plugins.toolkit as toolkit
 import urllib.parse
 import ckan.plugins as plugins
+import ckan.model as model
 
 log = logging.getLogger(__name__)
 # service_proxy = Blueprint("service_proxy", __name__)
@@ -64,8 +65,7 @@ def callback():
         oauth2helper.update_token(user_name, token)
         response = oauth2helper.redirect_from_callback()
     except Exception as e:
-
-        session.save()
+        model.Session.rollback()
 
         # If the callback is called with an error, we must show the message
         error_description = toolkit.request.args.get('error_description')
