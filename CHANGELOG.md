@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-beta.17 (2026-01-03)
+
+### Bug Fixes
+
+- **oauth2**: Fix database session handling in callback error path
+  ([`4e0bec4`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/4e0bec44ab3de59f3ccb1da2c30f498d511c89b1))
+
+
 ## v1.0.0-beta.16 (2025-12-29)
 
 ### Bug Fixes
