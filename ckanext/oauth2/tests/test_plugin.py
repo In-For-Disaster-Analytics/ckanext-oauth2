@@ -33,6 +33,7 @@ def plugin_setup():
     # Save functions and mock them
     original_toolkit = plugin.toolkit
     original_g = plugin.g
+    original_current_user = plugin.current_user
     plugin.toolkit = MagicMock()
     plugin.toolkit.config = {
         'ckan.oauth2.authorization_header': OAUTH2_AUTHORIZATION_HEADER,
@@ -56,14 +57,20 @@ def plugin_setup():
     # Cleanup
     plugin.toolkit = original_toolkit
     plugin.g = original_g
+    plugin.current_user = original_current_user
 
 
 class TestPlugin:
 
     def _set_identity(self, identity):
-        plugin.toolkit.request.environ = {}
+        mock_user = MagicMock()
         if identity:
-            plugin.toolkit.request.environ['repoze.who.identity'] = {'repoze.who.userid': identity}
+            mock_user.is_authenticated = True
+            mock_user.name = identity
+        else:
+            mock_user.is_authenticated = False
+            mock_user.name = None
+        plugin.current_user = mock_user
 
 
     def test_auth_functions(self, plugin_setup):
@@ -178,7 +185,7 @@ class TestPlugin:
         else:
             assert usertoken == plugin.toolkit.g.usertoken
 
-            # method 'usertoken_refresh' should relay on the one provided by the repoze.who module
+            # method 'usertoken_refresh' should relay on the one provided by the oauth2 module
             plugin.toolkit.g.usertoken_refresh()
             plugin_setup.oauth2helper.refresh_token.assert_called_once_with(expected_user)
             assert newtoken == plugin.toolkit.g.usertoken

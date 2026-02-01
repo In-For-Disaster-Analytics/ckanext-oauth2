@@ -25,13 +25,11 @@ import json
 import logging
 import os
 import jwt
-import six
 import requests
-from six.moves.urllib.parse import urljoin
+from urllib.parse import urljoin
 from oauthlib.oauth2 import InsecureTransportError
 from requests_oauthlib import OAuth2Session
 from ckan.plugins import toolkit # type: ignore
-from flask import jsonify
 from ckan.common import session, login_user
 import ckan.model as model
 import ckanext.oauth2.db as db
@@ -60,37 +58,36 @@ class OAuth2Helper(object):
         if self.verify_https and os.environ.get("REQUESTS_CA_BUNDLE", "").strip() != "":
             self.verify_https = os.environ["REQUESTS_CA_BUNDLE"].strip()
 
-        self.jwt_enable = six.text_type(os.environ.get('CKAN_OAUTH2_JWT_ENABLE', cfg.get('ckan.oauth2.jwt.enable',''))).strip().lower() in ("true", "1", "on")
-        self.jwt_algorithm = six.text_type(os.environ.get('CKAN_OAUTH2_JWT_ALGORITHM', cfg.get('ckan.oauth2.jwt.algorithm', 'HS256'))).strip()
-        self.jwt_secret = six.text_type(os.environ.get('CKAN_OAUTH2_JWT_SECRET', cfg.get('ckan.oauth2.jwt.secret', ''))).strip()
+        self.jwt_enable = str(os.environ.get('CKAN_OAUTH2_JWT_ENABLE', cfg.get('ckan.oauth2.jwt.enable',''))).strip().lower() in ("true", "1", "on")
+        self.jwt_algorithm = str(os.environ.get('CKAN_OAUTH2_JWT_ALGORITHM', cfg.get('ckan.oauth2.jwt.algorithm', 'HS256'))).strip()
+        self.jwt_secret = str(os.environ.get('CKAN_OAUTH2_JWT_SECRET', cfg.get('ckan.oauth2.jwt.secret', ''))).strip()
         # Replace literal \n with actual newlines for PEM format
-        jwt_public_key_raw = six.text_type(os.environ.get('CKAN_OAUTH2_JWT_PUBLIC_KEY', cfg.get('ckan.oauth2.jwt.public_key', ''))).strip()
+        jwt_public_key_raw = str(os.environ.get('CKAN_OAUTH2_JWT_PUBLIC_KEY', cfg.get('ckan.oauth2.jwt.public_key', ''))).strip()
         self.jwt_public_key = jwt_public_key_raw.replace('\\n', '\n') if jwt_public_key_raw else ''
         if self.jwt_public_key:
             log.debug(f'JWT public key loaded, starts with: {self.jwt_public_key[:50]}...')
 
         # JWT token field names - configurable for different OAuth2 providers
-        self.jwt_username_field = six.text_type(os.environ.get('CKAN_OAUTH2_JWT_USERNAME_FIELD', cfg.get('ckan.oauth2.jwt.username_field', 'username'))).strip()
-        self.jwt_email_field = six.text_type(os.environ.get('CKAN_OAUTH2_JWT_EMAIL_FIELD', cfg.get('ckan.oauth2.jwt.email_field', 'email'))).strip()
-        self.jwt_fullname_field = six.text_type(os.environ.get('CKAN_OAUTH2_JWT_FULLNAME_FIELD', cfg.get('ckan.oauth2.jwt.fullname_field', 'name'))).strip()
-        self.jwt_firstname_field = six.text_type(os.environ.get('CKAN_OAUTH2_JWT_FIRSTNAME_FIELD', cfg.get('ckan.oauth2.jwt.firstname_field', 'given_name'))).strip()
-        self.jwt_lastname_field = six.text_type(os.environ.get('CKAN_OAUTH2_JWT_LASTNAME_FIELD', cfg.get('ckan.oauth2.jwt.lastname_field', 'family_name'))).strip()
+        self.jwt_username_field = str(os.environ.get('CKAN_OAUTH2_JWT_USERNAME_FIELD', cfg.get('ckan.oauth2.jwt.username_field', 'username'))).strip()
+        self.jwt_email_field = str(os.environ.get('CKAN_OAUTH2_JWT_EMAIL_FIELD', cfg.get('ckan.oauth2.jwt.email_field', 'email'))).strip()
+        self.jwt_fullname_field = str(os.environ.get('CKAN_OAUTH2_JWT_FULLNAME_FIELD', cfg.get('ckan.oauth2.jwt.fullname_field', 'name'))).strip()
+        self.jwt_firstname_field = str(os.environ.get('CKAN_OAUTH2_JWT_FIRSTNAME_FIELD', cfg.get('ckan.oauth2.jwt.firstname_field', 'given_name'))).strip()
+        self.jwt_lastname_field = str(os.environ.get('CKAN_OAUTH2_JWT_LASTNAME_FIELD', cfg.get('ckan.oauth2.jwt.lastname_field', 'family_name'))).strip()
 
-        self.legacy_idm = six.text_type(os.environ.get('CKAN_OAUTH2_LEGACY_IDM', cfg.get('ckan.oauth2.legacy_idm', ''))).strip().lower() in ("true", "1", "on")
-        self.authorization_endpoint = six.text_type(os.environ.get('CKAN_OAUTH2_AUTHORIZATION_ENDPOINT', cfg.get('ckan.oauth2.authorization_endpoint', ''))).strip()
-        self.token_endpoint = six.text_type(os.environ.get('CKAN_OAUTH2_TOKEN_ENDPOINT', cfg.get('ckan.oauth2.token_endpoint', ''))).strip()
-        self.profile_api_url = six.text_type(os.environ.get('CKAN_OAUTH2_PROFILE_API_URL', cfg.get('ckan.oauth2.profile_api_url', ''))).strip()
-        self.client_id = six.text_type(os.environ.get('CKAN_OAUTH2_CLIENT_ID', cfg.get('ckan.oauth2.client_id', ''))).strip()
-        self.client_secret = six.text_type(os.environ.get('CKAN_OAUTH2_CLIENT_SECRET', cfg.get('ckan.oauth2.client_secret', ''))).strip()
-        self.scope = six.text_type(os.environ.get('CKAN_OAUTH2_SCOPE', cfg.get('ckan.oauth2.scope', ''))).strip()
-        self.rememberer_name = six.text_type(os.environ.get('CKAN_OAUTH2_REMEMBER_NAME', cfg.get('ckan.oauth2.rememberer_name', 'auth_tkt'))).strip()
-        self.profile_api_user_field = six.text_type(os.environ.get('CKAN_OAUTH2_PROFILE_API_USER_FIELD', cfg.get('ckan.oauth2.profile_api_user_field', ''))).strip()
-        self.profile_api_fullname_field = six.text_type(os.environ.get('CKAN_OAUTH2_PROFILE_API_FULLNAME_FIELD', cfg.get('ckan.oauth2.profile_api_fullname_field', ''))).strip()
-        self.profile_api_firstname_field = six.text_type(os.environ.get('CKAN_OAUTH2_PROFILE_API_FIRSTNAME_FIELD', cfg.get('ckan.oauth2.profile_api_firstname_field', ''))).strip()
-        self.profile_api_lastname_field = six.text_type(os.environ.get('CKAN_OAUTH2_PROFILE_API_LASTNAME_FIELD', cfg.get('ckan.oauth2.profile_api_lastname_field', ''))).strip()
-        self.profile_api_mail_field = six.text_type(os.environ.get('CKAN_OAUTH2_PROFILE_API_MAIL_FIELD', cfg.get('ckan.oauth2.profile_api_mail_field', ''))).strip()
-        self.profile_api_groupmembership_field = six.text_type(os.environ.get('CKAN_OAUTH2_PROFILE_API_GROUPMEMBERSHIP_FIELD', cfg.get('ckan.oauth2.profile_api_groupmembership_field', ''))).strip()
-        self.sysadmin_group_name = six.text_type(os.environ.get('CKAN_OAUTH2_SYSADMIN_GROUP_NAME', cfg.get('ckan.oauth2.sysadmin_group_name', ''))).strip()
+        self.legacy_idm = str(os.environ.get('CKAN_OAUTH2_LEGACY_IDM', cfg.get('ckan.oauth2.legacy_idm', ''))).strip().lower() in ("true", "1", "on")
+        self.authorization_endpoint = str(os.environ.get('CKAN_OAUTH2_AUTHORIZATION_ENDPOINT', cfg.get('ckan.oauth2.authorization_endpoint', ''))).strip()
+        self.token_endpoint = str(os.environ.get('CKAN_OAUTH2_TOKEN_ENDPOINT', cfg.get('ckan.oauth2.token_endpoint', ''))).strip()
+        self.profile_api_url = str(os.environ.get('CKAN_OAUTH2_PROFILE_API_URL', cfg.get('ckan.oauth2.profile_api_url', ''))).strip()
+        self.client_id = str(os.environ.get('CKAN_OAUTH2_CLIENT_ID', cfg.get('ckan.oauth2.client_id', ''))).strip()
+        self.client_secret = str(os.environ.get('CKAN_OAUTH2_CLIENT_SECRET', cfg.get('ckan.oauth2.client_secret', ''))).strip()
+        self.scope = str(os.environ.get('CKAN_OAUTH2_SCOPE', cfg.get('ckan.oauth2.scope', ''))).strip()
+        self.profile_api_user_field = str(os.environ.get('CKAN_OAUTH2_PROFILE_API_USER_FIELD', cfg.get('ckan.oauth2.profile_api_user_field', ''))).strip()
+        self.profile_api_fullname_field = str(os.environ.get('CKAN_OAUTH2_PROFILE_API_FULLNAME_FIELD', cfg.get('ckan.oauth2.profile_api_fullname_field', ''))).strip()
+        self.profile_api_firstname_field = str(os.environ.get('CKAN_OAUTH2_PROFILE_API_FIRSTNAME_FIELD', cfg.get('ckan.oauth2.profile_api_firstname_field', ''))).strip()
+        self.profile_api_lastname_field = str(os.environ.get('CKAN_OAUTH2_PROFILE_API_LASTNAME_FIELD', cfg.get('ckan.oauth2.profile_api_lastname_field', ''))).strip()
+        self.profile_api_mail_field = str(os.environ.get('CKAN_OAUTH2_PROFILE_API_MAIL_FIELD', cfg.get('ckan.oauth2.profile_api_mail_field', ''))).strip()
+        self.profile_api_groupmembership_field = str(os.environ.get('CKAN_OAUTH2_PROFILE_API_GROUPMEMBERSHIP_FIELD', cfg.get('ckan.oauth2.profile_api_groupmembership_field', ''))).strip()
+        self.sysadmin_group_name = str(os.environ.get('CKAN_OAUTH2_SYSADMIN_GROUP_NAME', cfg.get('ckan.oauth2.sysadmin_group_name', ''))).strip()
 
         site_url = cfg.get('ckan.site_url', 'http://localhost:5000')
         root_path = cfg.get('ckan.root_path')
@@ -156,7 +153,7 @@ class OAuth2Helper(object):
             log.debug(f'get_token: token received successfully')
         except requests.exceptions.SSLError as e:
             # TODO search a better way to detect invalid certificates
-            if "verify failed" in six.text_type(e):
+            if "verify failed" in str(e):
                 raise InsecureTransportError()
             else:
                 raise
@@ -309,24 +306,12 @@ class OAuth2Helper(object):
         # Log the user in and remember the session
         login_user(user_obj, remember=True)
 
-    def redirect_from_callback(self, resp_remember):
+    def redirect_from_callback(self):
         '''Redirect to the callback URL after a successful authentication.'''
         state = toolkit.request.args.get('state')
         came_from = get_came_from(state)
         log.debug(f'Redirect came_from: {came_from}')
-
-        log.debug(f'Headers before copy: {dict(resp_remember.headers)}')
-        response = jsonify()
-        response.status_code = 302
-        # Copy all headers including multiple Set-Cookie headers
-        for header in resp_remember.headers.keys():
-            for value in resp_remember.headers.getlist(header):
-                log.debug(f'Adding header: {header}={value}')
-                response.headers.add(header, value)
-        response.headers['location'] = came_from
-        response.autocorrect_location_header = False
-        log.debug(f'Final redirect response headers: {dict(response.headers)}')
-        return response
+        return toolkit.redirect_to(came_from)
 
 
     def get_stored_token(self, user_name):
@@ -407,7 +392,7 @@ class OAuth2Helper(object):
             try:
                 token = client.refresh_token(self.token_endpoint, client_secret=self.client_secret, client_id=self.client_id, verify=self.verify_https)
             except requests.exceptions.SSLError as e:
-                if "verify failed" in six.text_type(e):
+                if "verify failed" in str(e):
                     raise InsecureTransportError()
                 else:
                     raise
@@ -415,6 +400,6 @@ class OAuth2Helper(object):
             log.info('Token for user %s has been updated properly' % user_name)
             return token
         else:
-            log.warn('User %s has no refresh token' % user_name)
+            log.warning('User %s has no refresh token' % user_name)
 
 

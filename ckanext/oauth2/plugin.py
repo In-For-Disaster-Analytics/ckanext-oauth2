@@ -25,9 +25,11 @@ from .oauth2 import *
 import os
 
 from functools import partial
+from flask_login import current_user
 from ckan import plugins
 from ckan.common import g
 from ckan.plugins import toolkit
+import ckan.model as model
 import ckanext.oauth2.db as db
 import urllib.parse
 from ckanext.oauth2.views import get_blueprints
@@ -104,7 +106,7 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
         """Template helper to get stored OAuth2 token for a user"""
         if not user_name:
             # Automatically get current user if no user_name provided
-            user_name = getattr(toolkit.c, 'user', None)
+            user_name = getattr(toolkit.g, 'user', None)
 
         if not user_name:
             return None
@@ -125,7 +127,6 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
                 toolkit.g.usertoken = new_token
                 log.debug(f'Token refreshed for user {user_name}')
 
-        environ = toolkit.request.environ
         apikey = toolkit.request.headers.get(self.authorization_header, '')
         user_name = None
 
@@ -142,20 +143,22 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
                 pass
 
         # If the authentication via API fails, we can still log in the user using session.
-        if user_name is None and 'repoze.who.identity' in environ:
-            user_name = environ['repoze.who.identity']['repoze.who.userid']
+        if user_name is None and current_user.is_authenticated:
+            user_name = current_user.name
             log.info('User %s logged using session' % user_name)
 
         # If we have been able to log in the user (via API or Session)
         if user_name:
             g.user = user_name
             toolkit.g.user = user_name
+            toolkit.g.userobj = model.User.by_name(user_name)
             toolkit.g.usertoken = self.oauth2helper.get_stored_token(user_name)
             toolkit.g.usertoken_refresh = partial(_refresh_and_save_token, user_name)
         else:
             g.user = None
             toolkit.g.user = None
-            log.warn('The user is not currently logged...')
+            toolkit.g.userobj = None
+            log.warning('The user is not currently logged...')
 
     def get_auth_functions(self):
         # we need to prevent some actions being authorized.
