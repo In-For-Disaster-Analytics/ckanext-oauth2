@@ -396,10 +396,14 @@ class OAuth2Helper(object):
                     raise InsecureTransportError()
                 else:
                     raise
+            except Exception as e:
+                log.error('Failed to refresh token for user %s: %s' % (user_name, e))
+                return None
             self.update_token(user_name, token)
             log.info('Token for user %s has been updated properly' % user_name)
             return token
         else:
             log.warning('User %s has no refresh token' % user_name)
+            return None
 
 

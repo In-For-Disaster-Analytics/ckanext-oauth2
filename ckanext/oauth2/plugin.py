@@ -25,7 +25,7 @@ from .oauth2 import *
 import os
 
 from functools import partial
-from flask_login import current_user
+from flask_login import current_user, logout_user
 from ckan import plugins
 from ckan.common import g
 from ckan.plugins import toolkit
@@ -122,10 +122,22 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
 
         def _refresh_and_save_token(user_name):
             log.debug(f'Refreshing token for user {user_name}')
-            new_token = self.oauth2helper.refresh_token(user_name)
+            try:
+                new_token = self.oauth2helper.refresh_token(user_name)
+            except Exception as e:
+                log.error(f'Token refresh failed for user {user_name}: {e}')
+                new_token = None
+
             if new_token:
                 toolkit.g.usertoken = new_token
                 log.debug(f'Token refreshed for user {user_name}')
+            else:
+                log.warning(f'Token refresh unsuccessful for user {user_name}, logging out')
+                toolkit.g.user = None
+                toolkit.g.userobj = None
+                toolkit.g.usertoken = None
+                g.user = None
+                logout_user()
 
         apikey = toolkit.request.headers.get(self.authorization_header, '')
         user_name = None
