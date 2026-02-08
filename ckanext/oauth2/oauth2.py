@@ -95,6 +95,16 @@ class OAuth2Helper(object):
         self.redirect_uri = urljoin(urljoin(site_url, root_path), REDIRECT_URL)
         log.debug(f'OAuth2Helper.__init__: redirect_uri={self.redirect_uri}')
 
+        log.info('OAuth2 endpoint config: profile_api_url=%s, authorization_endpoint=%s, token_endpoint=%s',
+                 self.profile_api_url, self.authorization_endpoint, self.token_endpoint)
+        log.info('OAuth2 profile field config: user_field=%s, mail_field=%s, fullname_field=%s, firstname_field=%s, lastname_field=%s, groupmembership_field=%s',
+                 self.profile_api_user_field, self.profile_api_mail_field, self.profile_api_fullname_field,
+                 self.profile_api_firstname_field, self.profile_api_lastname_field, self.profile_api_groupmembership_field)
+        if self.jwt_enable:
+            log.info('OAuth2 JWT field config: username_field=%s, email_field=%s, fullname_field=%s, firstname_field=%s, lastname_field=%s',
+                     self.jwt_username_field, self.jwt_email_field, self.jwt_fullname_field,
+                     self.jwt_firstname_field, self.jwt_lastname_field)
+
         missing = [key for key in REQUIRED_CONF if getattr(self, key, "") == ""]
         if missing:
             raise ValueError("Missing required oauth2 conf: %s" % ", ".join(missing))
@@ -201,21 +211,31 @@ class OAuth2Helper(object):
         raise ValueError("User not found")
 
     def create_user_object(self, user_profile) -> model.User:
+        log.debug('create_user_object: incoming user_profile keys=%s', list(user_profile.keys()))
         email = user_profile.get(self.profile_api_mail_field) if self.profile_api_mail_field else None
         username = user_profile.get(self.profile_api_user_field) if self.profile_api_user_field else None
+        log.debug('create_user_object: extracted username=%s, email=%s', username, email)
         if not username and not email:
             raise ValueError("Username or email is required but was not provided by OAuth provider")
         user = model.User(name=username, email=email)
         if self.profile_api_fullname_field and self.profile_api_fullname_field in user_profile:
             user.fullname = user_profile[self.profile_api_fullname_field]
+            log.debug('create_user_object: fullname from fullname_field=%s', user.fullname)
         elif self.profile_api_firstname_field and self.profile_api_lastname_field and self.profile_api_firstname_field in user_profile and self.profile_api_lastname_field in user_profile:
             user.fullname = f"{user_profile[self.profile_api_firstname_field]} {user_profile[self.profile_api_lastname_field]}"
+            log.debug('create_user_object: fullname from first+last=%s', user.fullname)
         elif self.profile_api_firstname_field and self.profile_api_firstname_field in user_profile:
             user.fullname = user_profile[self.profile_api_firstname_field]
+            log.debug('create_user_object: fullname from firstname_field only=%s', user.fullname)
         elif self.profile_api_lastname_field and self.profile_api_lastname_field in user_profile:
             user.fullname = user_profile[self.profile_api_lastname_field]
+            log.debug('create_user_object: fullname from lastname_field only=%s', user.fullname)
+        else:
+            log.debug('create_user_object: no fullname fields matched in profile')
         if self.profile_api_groupmembership_field and self.profile_api_groupmembership_field in user_profile:
             user.sysadmin = self.sysadmin_group_name in user_profile[self.profile_api_groupmembership_field]
+            log.debug('create_user_object: sysadmin=%s (group_field=%s)', user.sysadmin, self.profile_api_groupmembership_field)
+        log.debug('create_user_object: final user name=%s, email=%s, fullname=%s', user.name, user.email, user.fullname)
         return user
 
     def get_profile_from_jwt(self, access_token):
@@ -230,28 +250,45 @@ class OAuth2Helper(object):
             raise ValueError("JWT secret or public key not configured for algorithm %s" % self.jwt_algorithm)
 
         token_decoded = self._decode_jwt(access_token, verify=True)
+        log.debug('get_profile_from_jwt: decoded token claims keys=%s', list(token_decoded.keys()))
         user_profile = {}
 
         # Extract username
         if self.jwt_username_field and self.jwt_username_field in token_decoded:
             user_profile[self.profile_api_user_field] = token_decoded[self.jwt_username_field]
+            log.debug('get_profile_from_jwt: extracted username=%s from jwt field=%s', user_profile[self.profile_api_user_field], self.jwt_username_field)
+        else:
+            log.debug('get_profile_from_jwt: jwt_username_field=%s not found in token claims', self.jwt_username_field)
 
         # Extract email
         if self.jwt_email_field and self.jwt_email_field in token_decoded:
             user_profile[self.profile_api_mail_field] = token_decoded[self.jwt_email_field]
+            log.debug('get_profile_from_jwt: extracted email=%s from jwt field=%s', user_profile[self.profile_api_mail_field], self.jwt_email_field)
+        else:
+            log.debug('get_profile_from_jwt: jwt_email_field=%s not found in token claims', self.jwt_email_field)
 
         # Extract fullname
         if self.jwt_fullname_field and self.jwt_fullname_field in token_decoded:
             user_profile[self.profile_api_fullname_field] = token_decoded[self.jwt_fullname_field]
+            log.debug('get_profile_from_jwt: extracted fullname=%s from jwt field=%s', user_profile[self.profile_api_fullname_field], self.jwt_fullname_field)
+        else:
+            log.debug('get_profile_from_jwt: jwt_fullname_field=%s not found in token claims', self.jwt_fullname_field)
 
         # Extract firstname
         if self.jwt_firstname_field and self.jwt_firstname_field in token_decoded:
             user_profile[self.profile_api_firstname_field] = token_decoded[self.jwt_firstname_field]
+            log.debug('get_profile_from_jwt: extracted firstname=%s from jwt field=%s', user_profile[self.profile_api_firstname_field], self.jwt_firstname_field)
+        else:
+            log.debug('get_profile_from_jwt: jwt_firstname_field=%s not found in token claims', self.jwt_firstname_field)
 
         # Extract lastname
         if self.jwt_lastname_field and self.jwt_lastname_field in token_decoded:
             user_profile[self.profile_api_lastname_field] = token_decoded[self.jwt_lastname_field]
+            log.debug('get_profile_from_jwt: extracted lastname=%s from jwt field=%s', user_profile[self.profile_api_lastname_field], self.jwt_lastname_field)
+        else:
+            log.debug('get_profile_from_jwt: jwt_lastname_field=%s not found in token claims', self.jwt_lastname_field)
 
+        log.debug('get_profile_from_jwt: final profile=%s', user_profile)
         return user_profile
 
     def get_profile_from_api(self, token):
@@ -285,6 +322,8 @@ class OAuth2Helper(object):
             if not self.jwt_enable:
                 raise
             log.warning(f"Failed to fetch profile from API: {e}. Continuing with JWT data only.")
+
+        log.debug('identify: merged user_profile=%s', user_profile)
 
         # Try to find existing user
         try:
