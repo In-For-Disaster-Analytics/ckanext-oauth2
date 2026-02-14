@@ -72,6 +72,14 @@ CKAN_OAUTH2_PROFILE_API_LASTNAME_FIELD="lastname"                   # Field name
 CKAN_OAUTH2_PROFILE_API_GROUPMEMBERSHIP_FIELD="groups"              # Field name for group membership
 CKAN_OAUTH2_SYSADMIN_GROUP_NAME="sysadmin"                          # Group name for sysadmin role
 
+# Response Unwrapping Configuration
+# Some OAuth2 providers wrap API responses in an envelope (e.g. {"result": {...}}).
+# Use dot-notation paths to navigate nested structures (e.g. "response.data").
+# Leave empty for providers that return flat responses (standard OAuth2).
+CKAN_OAUTH2_TOKEN_RESPONSE_PATH=""                                 # Dot-path to unwrap token response envelope (e.g. "result")
+CKAN_OAUTH2_TOKEN_RESPONSE_KEY="access_token"                      # Key within unwrapped response holding the token payload
+CKAN_OAUTH2_PROFILE_RESPONSE_PATH=""                               # Dot-path to unwrap profile response envelope (e.g. "result")
+
 # URL Configuration
 CKAN_OAUTH2_REGISTER_URL="https://oauth2-server/register"           # Registration URL
 CKAN_OAUTH2_RESET_URL="https://oauth2-server/reset"                 # Password reset URL
@@ -132,6 +140,38 @@ When JWT is enabled, the extension will:
 3. JWT data takes priority - profile API data only fills in missing fields
 
 This allows providers like Tapis to provide minimal data in JWT (e.g., just `tapis/username`) while additional information (email, full name) can be fetched from the profile API.
+
+### Response Unwrapping
+
+Some OAuth2 providers wrap their API responses in an envelope. For example, Tapis returns token responses as:
+
+```json
+{"result": {"access_token": {"access_token": "...", "token_type": "Bearer", ...}}}
+```
+
+And profile responses as:
+
+```json
+{"result": {"username": "john", "email": "john@example.com", ...}}
+```
+
+The response unwrapping configuration handles this in two steps:
+
+1. **`CKAN_OAUTH2_TOKEN_RESPONSE_PATH`**: A dot-separated path to navigate the token response envelope. For Tapis, set to `result`.
+2. **`CKAN_OAUTH2_TOKEN_RESPONSE_KEY`**: The key within the unwrapped response that holds the actual token payload dict. Defaults to `access_token`.
+3. **`CKAN_OAUTH2_PROFILE_RESPONSE_PATH`**: A dot-separated path to navigate the profile response envelope. For Tapis, set to `result`.
+
+For deeply nested responses, use dot-notation (e.g. `response.data.user`).
+
+For standard OAuth2 providers that return flat responses, leave these empty (the default) and no unwrapping will occur.
+
+**Example: Tapis configuration**
+
+```bash
+CKAN_OAUTH2_TOKEN_RESPONSE_PATH=result
+CKAN_OAUTH2_TOKEN_RESPONSE_KEY=access_token
+CKAN_OAUTH2_PROFILE_RESPONSE_PATH=result
+```
 
 ### Security Considerations
 
