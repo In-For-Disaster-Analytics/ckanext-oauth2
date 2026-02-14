@@ -20,6 +20,7 @@
 
 import pytest
 import ckanext.oauth2.plugin as plugin
+import jwt
 
 from unittest.mock import MagicMock, patch
 
@@ -189,3 +190,171 @@ class TestPlugin:
             plugin.toolkit.g.usertoken_refresh()
             plugin_setup.oauth2helper.refresh_token.assert_called_once_with(expected_user)
             assert newtoken == plugin.toolkit.g.usertoken
+
+    @patch('ckanext.oauth2.plugin.model')
+    def test_identify_expired_token_refresh_succeeds(self, mock_model, plugin_setup):
+        """Test expired JWT token in Authorization header triggers refresh successfully"""
+        # Mock model.User.by_name to avoid database queries
+        mock_user = MagicMock()
+        mock_model.User.by_name.return_value = mock_user
+
+        # Setup expired token scenario
+        plugin_setup.oauth2helper.jwt_enable = True
+        plugin_setup.oauth2helper.jwt_username_field = 'tapis/username'
+        plugin_setup.oauth2helper.identify = MagicMock(side_effect=jwt.ExpiredSignatureError("Token expired"))
+        plugin_setup.oauth2helper._decode_jwt = MagicMock(return_value={'tapis/username': 'testuser'})
+        plugin_setup.oauth2helper.refresh_token = MagicMock(return_value={'access_token': 'new_token'})
+        plugin_setup.oauth2helper.get_stored_token = MagicMock(return_value=None)
+
+        # Set authorization header with expired token
+        plugin.toolkit.request.headers = {OAUTH2_AUTHORIZATION_HEADER: 'Bearer expired_token'}
+        plugin.toolkit.g.user = None
+        plugin.g.user = None
+
+        # Call identify
+        plugin_setup.identify()
+
+        # Verify refresh was called and user is authenticated
+        plugin_setup.oauth2helper.refresh_token.assert_called_once_with('testuser')
+        assert plugin.toolkit.g.user == 'testuser'
+
+    def test_identify_expired_token_refresh_fails(self, plugin_setup):
+        """Test expired JWT token refresh failure leaves user unauthenticated"""
+        # Mock current_user
+        self._set_identity(None)
+
+        # Setup expired token scenario with failed refresh
+        plugin_setup.oauth2helper.jwt_enable = True
+        plugin_setup.oauth2helper.jwt_username_field = 'tapis/username'
+        plugin_setup.oauth2helper.identify = MagicMock(side_effect=jwt.ExpiredSignatureError("Token expired"))
+        plugin_setup.oauth2helper._decode_jwt = MagicMock(return_value={'tapis/username': 'testuser'})
+        plugin_setup.oauth2helper.refresh_token = MagicMock(return_value=None)
+        plugin_setup.oauth2helper.get_stored_token = MagicMock(return_value=None)
+
+        # Set authorization header with expired token
+        plugin.toolkit.request.headers = {OAUTH2_AUTHORIZATION_HEADER: 'Bearer expired_token'}
+        plugin.toolkit.g.user = None
+        plugin.g.user = None
+
+        # Call identify
+        plugin_setup.identify()
+
+        # Verify user is NOT authenticated
+        plugin_setup.oauth2helper.refresh_token.assert_called_once_with('testuser')
+        assert plugin.toolkit.g.user is None
+
+    def test_identify_expired_token_no_username(self, plugin_setup):
+        """Test expired token without username field in claims"""
+        # Mock current_user
+        self._set_identity(None)
+
+        # Setup expired token scenario without username in claims
+        plugin_setup.oauth2helper.jwt_enable = True
+        plugin_setup.oauth2helper.jwt_username_field = 'tapis/username'
+        plugin_setup.oauth2helper.identify = MagicMock(side_effect=jwt.ExpiredSignatureError("Token expired"))
+        plugin_setup.oauth2helper._decode_jwt = MagicMock(return_value={})  # No username field
+        plugin_setup.oauth2helper.refresh_token = MagicMock(return_value={'access_token': 'new_token'})
+        plugin_setup.oauth2helper.get_stored_token = MagicMock(return_value=None)
+
+        # Set authorization header with expired token
+        plugin.toolkit.request.headers = {OAUTH2_AUTHORIZATION_HEADER: 'Bearer expired_token'}
+        plugin.toolkit.g.user = None
+        plugin.g.user = None
+
+        # Call identify
+        plugin_setup.identify()
+
+        # Verify refresh was NOT called and user is NOT authenticated
+        plugin_setup.oauth2helper.refresh_token.assert_not_called()
+        assert plugin.toolkit.g.user is None
+
+    @patch('ckanext.oauth2.plugin.model')
+    def test_identify_session_expired_token_refresh_succeeds(self, mock_model, plugin_setup):
+        """Test session auth with expired stored token triggers refresh successfully"""
+        # Mock model.User.by_name to avoid database queries
+        mock_user = MagicMock()
+        mock_model.User.by_name.return_value = mock_user
+
+        # Setup session-authenticated user
+        self._set_identity('testuser')
+
+        # Configure JWT and expired token check
+        plugin_setup.oauth2helper.jwt_enable = True
+        plugin_setup.oauth2helper.jwt_username_field = 'tapis/username'
+        expired_token = {'access_token': 'expired_token'}
+        new_token = {'access_token': 'new_token'}
+
+        plugin_setup.oauth2helper.get_stored_token = MagicMock(return_value=expired_token)
+        plugin_setup.oauth2helper.check_token_expiration = MagicMock(return_value=(True, 'testuser'))
+        plugin_setup.oauth2helper.refresh_token = MagicMock(return_value=new_token)
+
+        # No Authorization header (session path)
+        plugin.toolkit.request.headers = {}
+        plugin.toolkit.g.user = None
+        plugin.toolkit.g.usertoken = None
+        plugin.g.user = None
+
+        # Call identify
+        plugin_setup.identify()
+
+        # Verify token was refreshed
+        plugin_setup.oauth2helper.check_token_expiration.assert_called_once_with('expired_token')
+        plugin_setup.oauth2helper.refresh_token.assert_called_once_with('testuser')
+        assert plugin.toolkit.g.usertoken == new_token
+
+    @patch('ckanext.oauth2.plugin.model')
+    def test_identify_session_expired_token_refresh_fails(self, mock_model, plugin_setup):
+        """Test session auth with expired stored token and failed refresh"""
+        # Mock model.User.by_name to avoid database queries
+        mock_user = MagicMock()
+        mock_model.User.by_name.return_value = mock_user
+
+        # Setup session-authenticated user
+        self._set_identity('testuser')
+
+        # Configure JWT and expired token check with failed refresh
+        plugin_setup.oauth2helper.jwt_enable = True
+        plugin_setup.oauth2helper.jwt_username_field = 'tapis/username'
+        expired_token = {'access_token': 'expired_token'}
+
+        plugin_setup.oauth2helper.get_stored_token = MagicMock(return_value=expired_token)
+        plugin_setup.oauth2helper.check_token_expiration = MagicMock(return_value=(True, 'testuser'))
+        plugin_setup.oauth2helper.refresh_token = MagicMock(return_value=None)
+
+        # No Authorization header (session path)
+        plugin.toolkit.request.headers = {}
+        plugin.toolkit.g.user = None
+        plugin.toolkit.g.usertoken = None
+        plugin.g.user = None
+
+        # Call identify
+        plugin_setup.identify()
+
+        # Verify user is still authenticated (session valid) but usertoken is None
+        assert plugin.toolkit.g.user == 'testuser'
+        assert plugin.toolkit.g.usertoken is None
+
+    @patch('ckanext.oauth2.plugin.model')
+    def test_identify_valid_token_no_refresh(self, mock_model, plugin_setup):
+        """Test valid (non-expired) JWT token does not trigger refresh"""
+        # Mock model.User.by_name to avoid database queries
+        mock_user = MagicMock()
+        mock_model.User.by_name.return_value = mock_user
+
+        # Setup valid token scenario - JWT disabled so check_token_expiration is not called
+        plugin_setup.oauth2helper.jwt_enable = False
+        plugin_setup.oauth2helper.identify = MagicMock(return_value=('testuser', MagicMock()))
+        plugin_setup.oauth2helper.refresh_token = MagicMock(return_value={'access_token': 'new_token'})
+        plugin_setup.oauth2helper.get_stored_token = MagicMock(return_value=None)
+
+        # Set authorization header with valid token
+        plugin.toolkit.request.headers = {OAUTH2_AUTHORIZATION_HEADER: 'Bearer valid_token'}
+        plugin.toolkit.g.user = None
+        plugin.g.user = None
+
+        # Call identify
+        plugin_setup.identify()
+
+        # Verify refresh was NOT called (because identify succeeded, no ExpiredSignatureError)
+        plugin_setup.oauth2helper.refresh_token.assert_not_called()
+        assert plugin.toolkit.g.user is not None

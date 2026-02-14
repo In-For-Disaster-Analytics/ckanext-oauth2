@@ -25,6 +25,7 @@ import json
 import os
 import pytest
 from urllib.parse import urlencode
+import jwt
 
 import ckanext.oauth2.oauth2 as oauth2
 from ckanext.oauth2.oauth2 import OAuth2Helper
@@ -1205,3 +1206,127 @@ class TestOAuth2Plugin:
 
         result = hooks['access_token_response'](mock_response)
         assert not hasattr(result._content, 'decode') or result._content == mock_response._content
+
+
+class TestTokenExpiration:
+    """Tests for JWT token expiration detection and handling"""
+
+    def _create_rsa_keys(self):
+        """Generate RSA key pair for testing"""
+        from cryptography.hazmat.primitives.asymmetric import rsa
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.backends import default_backend
+
+        private_key = rsa.generate_private_key(
+            public_exponent=65537,
+            key_size=2048,
+            backend=default_backend()
+        )
+
+        public_key = private_key.public_key()
+
+        private_pem = private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.TraditionalOpenSSL,
+            encryption_algorithm=serialization.NoEncryption()
+        )
+
+        public_pem = public_key.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+
+        return private_pem, public_pem
+
+    def _create_jwt_token(self, private_key, username, expired=False):
+        """Create a JWT token for testing"""
+        # Use a fixed base timestamp in the past for test stability
+        # January 1, 2025 00:00:00 UTC (well in the past)
+        base_time = 1735689600
+
+        payload = {
+            'tapis/username': username,
+            'iat': base_time,  # Issued at base time
+        }
+
+        if expired:
+            # Expired 1 hour after issuance (still in the past)
+            payload['exp'] = base_time + 3600
+        else:
+            # Expires in 2050 (far future, won't expire during tests)
+            payload['exp'] = 2524608000
+
+        return jwt.encode(payload, private_key, algorithm='RS256')
+
+    def _create_helper(self, public_key):
+        """Create OAuth2Helper configured for JWT RS256"""
+        config = {
+            'ckan.oauth2.authorization_endpoint': 'https://test/oauth2/authorize/',
+            'ckan.oauth2.token_endpoint': 'https://test/oauth2/token/',
+            'ckan.oauth2.client_id': 'client-id',
+            'ckan.oauth2.client_secret': 'client-secret',
+            'ckan.oauth2.profile_api_url': 'https://test/oauth2/user',
+            'ckan.oauth2.profile_api_user_field': 'id',
+            'ckan.oauth2.profile_api_mail_field': 'email',
+            'ckan.oauth2.jwt.enable': 'true',
+            'ckan.oauth2.jwt.algorithm': 'RS256',
+            'ckan.oauth2.jwt.public_key': public_key.decode('utf-8'),
+            'ckan.oauth2.jwt.username_field': 'tapis/username',
+        }
+
+        helper = OAuth2Helper(config)
+        return helper
+
+    def test_decode_jwt_verify_false_returns_claims(self):
+        """Test that _decode_jwt with verify=False returns claims from expired token"""
+        private_key, public_key = self._create_rsa_keys()
+        helper = self._create_helper(public_key)
+
+        # Create an expired token
+        expired_token = self._create_jwt_token(private_key, 'testuser', expired=True)
+
+        # Should be able to decode without verification
+        claims = helper._decode_jwt(expired_token, verify=False)
+
+        assert claims is not None
+        assert claims.get('tapis/username') == 'testuser'
+
+    def test_decode_jwt_expired_token_raises(self):
+        """Test that _decode_jwt with verify=True raises ExpiredSignatureError for expired token"""
+        private_key, public_key = self._create_rsa_keys()
+        helper = self._create_helper(public_key)
+
+        # Create an expired token
+        expired_token = self._create_jwt_token(private_key, 'testuser', expired=True)
+
+        # Should raise ExpiredSignatureError when verifying
+        with pytest.raises(jwt.ExpiredSignatureError):
+            helper._decode_jwt(expired_token, verify=True)
+
+    def test_check_token_expiration_valid_token(self):
+        """Test check_token_expiration with a valid (non-expired) token"""
+        private_key, public_key = self._create_rsa_keys()
+        helper = self._create_helper(public_key)
+
+        # Create a valid token
+        valid_token = self._create_jwt_token(private_key, 'testuser', expired=False)
+
+        # Should return (False, username)
+        is_expired, username = helper.check_token_expiration(valid_token)
+
+        assert is_expired is False
+        assert username == 'testuser'
+
+    def test_check_token_expiration_expired_token(self):
+        """Test check_token_expiration with an expired token"""
+        private_key, public_key = self._create_rsa_keys()
+        helper = self._create_helper(public_key)
+
+        # Create an expired token
+        expired_token = self._create_jwt_token(private_key, 'testuser', expired=True)
+
+        # Should return (True, username)
+        is_expired, username = helper.check_token_expiration(expired_token)
+
+        assert is_expired is True
+        assert username == 'testuser'
