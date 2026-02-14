@@ -808,27 +808,19 @@ class TestOAuth2Plugin:
         {'came_from': 'http://localhost/dataset'},
         {},
     ])
-    @patch('ckanext.oauth2.oauth2.jsonify')
-    def test_redirect_from_callback(self, mock_jsonify, oauth2_setup, identity):
+    @patch('ckanext.oauth2.oauth2.toolkit')
+    def test_redirect_from_callback(self, mock_toolkit, oauth2_setup, identity):
         came_from = 'initial-page'
         state = b64encode(json.dumps({'came_from': came_from}).encode('utf-8'))
-        oauth2.toolkit.request = make_request(True, 'data.com', 'callback', {'state': state, 'code': 'code'})
+        mock_toolkit.request = make_request(True, 'data.com', 'callback', {'state': state, 'code': 'code'})
 
-        # Configure the mock
-        mock_response = MagicMock()
-        mock_jsonify.return_value = mock_response
+        mock_redirect = MagicMock()
+        mock_toolkit.redirect_to = mock_redirect
 
         helper = self._helper(oauth2_setup)
-        resp_remember = MagicMock()
-        # Mock headers to behave like Flask Headers object
-        mock_headers = MagicMock()
-        mock_headers.keys.return_value = []
-        mock_headers.getlist.return_value = []
-        resp_remember.headers = mock_headers
-        result = helper.redirect_from_callback(resp_remember)
+        result = helper.redirect_from_callback()
 
-        assert mock_response.status_code == 302
-        mock_response.headers.__setitem__.assert_any_call('location', came_from)
+        mock_redirect.assert_called_once_with(came_from)
 
     @pytest.mark.parametrize("user_exists,jwt_expires_in", [
         (True, True),

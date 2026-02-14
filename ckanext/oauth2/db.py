@@ -18,7 +18,7 @@
 # along with OAuth2 CKAN Extension.  If not, see <http://www.gnu.org/licenses/>.
 
 import sqlalchemy as sa
-from sqlalchemy import Table, Column, types
+from sqlalchemy import Table, Column, types, orm
 import logging
 from ckan.model import meta, domain_object
 
@@ -46,8 +46,9 @@ class UserToken(domain_object.DomainObject):
         return meta.Session.query(cls).filter_by(user_name=user_name).first()
 
 
-# Map the class to the table
-meta.mapper(UserToken, user_token_table)
+# Map the class to the table using SQLAlchemy 1.4+ API
+_mapper_registry = orm.registry()
+_mapper_registry.map_imperatively(UserToken, user_token_table)
 
 
 def init_db():
