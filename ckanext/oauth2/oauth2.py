@@ -135,8 +135,10 @@ class OAuth2Helper(object):
             if not self.token_response_path:
                 return response
             data = response.json()
-            log.debug(f"data: {data}")
+            # Step 1: Navigate to the container using token_response_path (e.g. "result")
             unwrapped = self._unwrap_response(data, self.token_response_path)
+            # Step 2: Extract the full token payload dict from token_response_key
+            # (e.g. "access_token" -> the dict containing access_token, token_type, etc.)
             if self.token_response_key and self.token_response_key in unwrapped:
                 response._content = json.dumps(unwrapped[self.token_response_key]).encode('utf-8')
             return response
