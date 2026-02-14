@@ -23,6 +23,7 @@
 import logging
 from .oauth2 import *
 import os
+import jwt
 
 from functools import partial
 from flask_login import current_user, logout_user
@@ -150,6 +151,22 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
                 token = {'access_token': apikey}
                 user_name = self.oauth2helper.identify(token)
                 log.debug(f'Auth success: {user_name}')
+            except jwt.ExpiredSignatureError:
+                log.info('JWT token expired for API request, attempting refresh')
+                try:
+                    claims = self.oauth2helper._decode_jwt(apikey, verify=False)
+                    expired_username = claims.get(self.oauth2helper.jwt_username_field)
+                    if expired_username:
+                        new_token = self.oauth2helper.refresh_token(expired_username)
+                        if new_token:
+                            user_name = expired_username
+                            log.info('Token refreshed for user %s', expired_username)
+                        else:
+                            log.warning('Token refresh failed for user %s', expired_username)
+                    else:
+                        log.warning('Could not extract username from expired token')
+                except Exception as e:
+                    log.error('Error during token refresh: %s', e)
             except Exception as e:
                 log.debug(f'Auth error: {e}')
                 pass
@@ -165,6 +182,23 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
             toolkit.g.user = user_name
             toolkit.g.userobj = model.User.by_name(user_name)
             toolkit.g.usertoken = self.oauth2helper.get_stored_token(user_name)
+
+            # Check if stored token is expired and refresh if needed
+            if toolkit.g.usertoken and toolkit.g.usertoken.get('access_token') and self.oauth2helper.jwt_enable:
+                actual_name = user_name[0] if isinstance(user_name, tuple) else user_name
+                is_expired, _ = self.oauth2helper.check_token_expiration(
+                    toolkit.g.usertoken['access_token']
+                )
+                if is_expired:
+                    log.info('Stored token expired for user %s, refreshing', actual_name)
+                    new_token = self.oauth2helper.refresh_token(actual_name)
+                    if new_token:
+                        toolkit.g.usertoken = new_token
+                        log.info('Stored token refreshed for user %s', actual_name)
+                    else:
+                        log.warning('Stored token refresh failed for user %s', actual_name)
+                        toolkit.g.usertoken = None
+
             toolkit.g.usertoken_refresh = partial(_refresh_and_save_token, user_name)
         else:
             g.user = None
