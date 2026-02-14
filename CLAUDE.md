@@ -29,35 +29,40 @@ This is a CKAN extension that provides OAuth2 authentication support. The extens
 
 ### Installation and Setup
 ```bash
-# Install in development mode
-pip install -e .
-
-# Install development dependencies
-pip install -r requirements-dev.txt
+# Install dependencies and dev dependencies using uv
+uv sync --dev
 ```
 
 ### Running Tests
+
+Tests use `uv run` with the `CKAN_INI` environment variable pointing to `test.ini`. All commands should be run from the extension root directory (`src/ckanext-oauth2/`).
+
 ```bash
-# Run all tests with pytest
-pytest
+# Run all tests
+CKAN_INI=test.ini uv run pytest
+
+# Run all tests with verbose output
+CKAN_INI=test.ini uv run pytest -v
 
 # Run tests with coverage
-pytest --cov=ckanext.oauth2
+CKAN_INI=test.ini uv run pytest --cov=ckanext.oauth2
 
-# Run specific test file
-pytest ckanext/oauth2/tests/test_oauth2.py
+# Run a specific test file
+CKAN_INI=test.ini uv run pytest ckanext/oauth2/tests/test_oauth2.py
 
-# Run specific test method
-pytest ckanext/oauth2/tests/test_oauth2.py::TestOAuth2Helper::test_method_name
+# Run a specific test class
+CKAN_INI=test.ini uv run pytest ckanext/oauth2/tests/test_oauth2.py::TestOAuth2Plugin
+
+# Run a specific test method
+CKAN_INI=test.ini uv run pytest ckanext/oauth2/tests/test_oauth2.py::TestOAuth2Plugin::test_method_name -v
 ```
+
+**Note:** `pytest.ini` already configures `--ckan-ini test.ini` and sets `testpaths = ckanext/oauth2/tests`, but the `CKAN_INI` environment variable is still required for CKAN's internal configuration loading.
 
 ### Code Quality
 ```bash
 # Check PEP8 compliance (ignores E501 line length)
-flake8 ckanext/
-
-# Alternative PEP8 check
-pep8 ckanext/
+uv run flake8 ckanext/
 ```
 
 ## Configuration
