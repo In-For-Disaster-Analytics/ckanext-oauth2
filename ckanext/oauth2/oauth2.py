@@ -132,15 +132,16 @@ class OAuth2Helper(object):
     def _compliance_fix(self, session):
         """Apply compliance hooks to the OAuth2 session."""
         def _fix_access_token(response):
+            if not self.token_response_path:
+                return response
             data = response.json()
             log.debug(f"data: {data}")
-            result = self._unwrap_tapis_response(data)
-            if result is not data:
-                response._content = json.dumps(result['access_token']).encode('utf-8')
+            unwrapped = self._unwrap_response(data, self.token_response_path)
+            if self.token_response_key and self.token_response_key in unwrapped:
+                response._content = json.dumps(unwrapped[self.token_response_key]).encode('utf-8')
             return response
 
         session.register_compliance_hook('access_token_response', _fix_access_token)
-        # session.register_compliance_hook('refresh_token_response', _fix_access_token)
         return session
 
     def challenge(self, came_from_url):

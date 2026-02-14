@@ -1117,3 +1117,55 @@ class TestOAuth2Plugin:
         helper = self._helper(oauth2_setup)
         data = {'result': {'foo': 'bar'}}
         assert helper._unwrap_response(data, 'result.nonexistent') == {'foo': 'bar'}
+
+    def test_compliance_fix_with_token_response_path(self, oauth2_setup):
+        """Token response unwrapping uses configured path and key"""
+        helper = self._helper(oauth2_setup, conf={
+            'ckan.oauth2.token_response_path': 'result',
+            'ckan.oauth2.token_response_key': 'access_token',
+        })
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            'result': {
+                'access_token': {
+                    'access_token': 'my_token',
+                    'token_type': 'Bearer',
+                }
+            }
+        }
+
+        session = MagicMock()
+        hooks = {}
+
+        def register_hook(name, fn):
+            hooks[name] = fn
+
+        session.register_compliance_hook = register_hook
+        helper._compliance_fix(session)
+
+        result = hooks['access_token_response'](mock_response)
+        content = json.loads(result._content.decode('utf-8'))
+        assert content == {'access_token': 'my_token', 'token_type': 'Bearer'}
+
+    def test_compliance_fix_without_token_response_path(self, oauth2_setup):
+        """No unwrapping when token_response_path is empty"""
+        helper = self._helper(oauth2_setup)
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            'access_token': 'my_token',
+            'token_type': 'Bearer',
+        }
+
+        session = MagicMock()
+        hooks = {}
+
+        def register_hook(name, fn):
+            hooks[name] = fn
+
+        session.register_compliance_hook = register_hook
+        helper._compliance_fix(session)
+
+        result = hooks['access_token_response'](mock_response)
+        assert not hasattr(result._content, 'decode') or result._content == mock_response._content
