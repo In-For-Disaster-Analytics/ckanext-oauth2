@@ -88,6 +88,9 @@ class OAuth2Helper(object):
         self.profile_api_mail_field = str(os.environ.get('CKAN_OAUTH2_PROFILE_API_MAIL_FIELD', cfg.get('ckan.oauth2.profile_api_mail_field', ''))).strip()
         self.profile_api_groupmembership_field = str(os.environ.get('CKAN_OAUTH2_PROFILE_API_GROUPMEMBERSHIP_FIELD', cfg.get('ckan.oauth2.profile_api_groupmembership_field', ''))).strip()
         self.sysadmin_group_name = str(os.environ.get('CKAN_OAUTH2_SYSADMIN_GROUP_NAME', cfg.get('ckan.oauth2.sysadmin_group_name', ''))).strip()
+        self.token_response_path = str(os.environ.get('CKAN_OAUTH2_TOKEN_RESPONSE_PATH', cfg.get('ckan.oauth2.token_response_path', ''))).strip()
+        self.token_response_key = str(os.environ.get('CKAN_OAUTH2_TOKEN_RESPONSE_KEY', cfg.get('ckan.oauth2.token_response_key', 'access_token'))).strip()
+        self.profile_response_path = str(os.environ.get('CKAN_OAUTH2_PROFILE_RESPONSE_PATH', cfg.get('ckan.oauth2.profile_response_path', ''))).strip()
 
         site_url = cfg.get('ckan.site_url', 'http://localhost:5000')
         root_path = cfg.get('ckan.root_path')
@@ -111,11 +114,19 @@ class OAuth2Helper(object):
         elif self.scope == "":
             self.scope = None
 
-    def _unwrap_tapis_response(self, data):
-        """Unwrap Tapis API responses that nest data inside 'result'."""
-        if 'result' in data and isinstance(data['result'], dict):
-            log.debug('_unwrap_tapis_response: unwrapping result keys=%s', list(data['result'].keys()))
-            return data['result']
+    def _unwrap_response(self, data, path):
+        """Unwrap a nested API response by following a dot-separated path.
+
+        If path is empty/None, returns data unchanged.
+        """
+        if not path:
+            return data
+        for key in path.split('.'):
+            if isinstance(data, dict) and key in data:
+                data = data[key]
+            else:
+                log.warning('_unwrap_response: key "%s" not found (path: %s)', key, path)
+                return data
         return data
 
     def _compliance_fix(self, session):

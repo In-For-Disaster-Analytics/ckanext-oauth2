@@ -1086,3 +1086,34 @@ class TestOAuth2Plugin:
         assert user.name == 'nesteduser'
         assert user.email == 'nested@example.com'
         assert user.fullname == 'Nested User'
+
+    def test_unwrap_response_empty_path(self, oauth2_setup):
+        """Empty path returns data unchanged"""
+        helper = self._helper(oauth2_setup)
+        data = {'foo': 'bar'}
+        assert helper._unwrap_response(data, '') == data
+        assert helper._unwrap_response(data, None) == data
+
+    def test_unwrap_response_single_key(self, oauth2_setup):
+        """Single key path unwraps one level"""
+        helper = self._helper(oauth2_setup)
+        data = {'result': {'username': 'test'}}
+        assert helper._unwrap_response(data, 'result') == {'username': 'test'}
+
+    def test_unwrap_response_nested_path(self, oauth2_setup):
+        """Dot-separated path unwraps multiple levels"""
+        helper = self._helper(oauth2_setup)
+        data = {'response': {'data': {'username': 'test'}}}
+        assert helper._unwrap_response(data, 'response.data') == {'username': 'test'}
+
+    def test_unwrap_response_missing_key(self, oauth2_setup):
+        """Missing key in path returns data as-is"""
+        helper = self._helper(oauth2_setup)
+        data = {'foo': 'bar'}
+        assert helper._unwrap_response(data, 'nonexistent') == data
+
+    def test_unwrap_response_partial_path(self, oauth2_setup):
+        """Partially valid path returns data at point of failure"""
+        helper = self._helper(oauth2_setup)
+        data = {'result': {'foo': 'bar'}}
+        assert helper._unwrap_response(data, 'result.nonexistent') == {'foo': 'bar'}
