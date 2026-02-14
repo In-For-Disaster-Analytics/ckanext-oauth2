@@ -111,14 +111,21 @@ class OAuth2Helper(object):
         elif self.scope == "":
             self.scope = None
 
+    def _unwrap_tapis_response(self, data):
+        """Unwrap Tapis API responses that nest data inside 'result'."""
+        if 'result' in data and isinstance(data['result'], dict):
+            log.debug('_unwrap_tapis_response: unwrapping result keys=%s', list(data['result'].keys()))
+            return data['result']
+        return data
+
     def _compliance_fix(self, session):
         """Apply compliance hooks to the OAuth2 session."""
         def _fix_access_token(response):
             data = response.json()
             log.debug(f"data: {data}")
-            if 'result' in data:
-                # Just return the access token directly without additional encoding
-                response._content = json.dumps(data['result']['access_token']).encode('utf-8')
+            result = self._unwrap_tapis_response(data)
+            if result is not data:
+                response._content = json.dumps(result['access_token']).encode('utf-8')
             return response
 
         session.register_compliance_hook('access_token_response', _fix_access_token)
@@ -297,7 +304,8 @@ class OAuth2Helper(object):
         Returns the profile response as a dict.
         """
         profile_response = self.query_profile_api_legacy(token) if self.legacy_idm else self.query_profile_api_default(token)
-        return profile_response.json()
+        profile_data = profile_response.json()
+        return self._unwrap_tapis_response(profile_data)
 
     def identify(self, token):
         # Get profile from both JWT token and profile API, then merge
