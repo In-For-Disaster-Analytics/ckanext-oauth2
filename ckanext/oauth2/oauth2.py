@@ -417,10 +417,27 @@ class OAuth2Helper(object):
                     log.error('Unknown JWT algorithm %s, rejecting token', self.jwt_algorithm)
                     raise ValueError('Unknown JWT algorithm')
             else:
-                return jwt.decode(token, verify=True)
+                return jwt.decode(token, options={"verify_signature": False, "verify_exp": False})
+        except jwt.ExpiredSignatureError:
+            raise
         except (jwt.DecodeError, jwt.InvalidTokenError) as e:
             log.error('JWT decode error: %s', str(e))
             raise
+
+    def check_token_expiration(self, access_token):
+        """Check if a JWT token is expired without raising.
+
+        Returns:
+            tuple: (is_expired: bool, username: str | None)
+        """
+        try:
+            claims = self._decode_jwt(access_token, verify=True)
+            username = claims.get(self.jwt_username_field)
+            return False, username
+        except jwt.ExpiredSignatureError:
+            claims = self._decode_jwt(access_token, verify=False)
+            username = claims.get(self.jwt_username_field)
+            return True, username
 
     def update_token(self, user_name, token):
         try:
