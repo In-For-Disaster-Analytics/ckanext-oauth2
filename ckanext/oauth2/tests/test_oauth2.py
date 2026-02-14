@@ -1148,6 +1148,50 @@ class TestOAuth2Plugin:
         content = json.loads(result._content.decode('utf-8'))
         assert content == {'access_token': 'my_token', 'token_type': 'Bearer'}
 
+    @httpretty.activate
+    def test_get_profile_from_api_with_path(self, oauth2_setup):
+        """Profile API response is unwrapped using configured path"""
+        helper = self._helper(oauth2_setup, conf={
+            'ckan.oauth2.profile_response_path': 'result',
+        })
+
+        wrapped_response = {
+            'result': {
+                oauth2_setup['user_field']: 'testuser',
+                oauth2_setup['email_field']: 'test@example.com',
+            }
+        }
+
+        httpretty.register_uri(
+            httpretty.GET,
+            oauth2_setup['profile_api_url'],
+            body=json.dumps(wrapped_response),
+        )
+
+        profile = helper.get_profile_from_api(OAUTH2TOKEN)
+        assert profile[oauth2_setup['user_field']] == 'testuser'
+        assert profile[oauth2_setup['email_field']] == 'test@example.com'
+
+    @httpretty.activate
+    def test_get_profile_from_api_without_path(self, oauth2_setup):
+        """Profile API response returned as-is when no path configured"""
+        helper = self._helper(oauth2_setup)
+
+        flat_response = {
+            oauth2_setup['user_field']: 'testuser',
+            oauth2_setup['email_field']: 'test@example.com',
+        }
+
+        httpretty.register_uri(
+            httpretty.GET,
+            oauth2_setup['profile_api_url'],
+            body=json.dumps(flat_response),
+        )
+
+        profile = helper.get_profile_from_api(OAUTH2TOKEN)
+        assert profile[oauth2_setup['user_field']] == 'testuser'
+        assert profile[oauth2_setup['email_field']] == 'test@example.com'
+
     def test_compliance_fix_without_token_response_path(self, oauth2_setup):
         """No unwrapping when token_response_path is empty"""
         helper = self._helper(oauth2_setup)

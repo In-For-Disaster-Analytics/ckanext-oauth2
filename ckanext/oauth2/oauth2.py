@@ -317,7 +317,7 @@ class OAuth2Helper(object):
         """
         profile_response = self.query_profile_api_legacy(token) if self.legacy_idm else self.query_profile_api_default(token)
         profile_data = profile_response.json()
-        return self._unwrap_tapis_response(profile_data)
+        return self._unwrap_response(profile_data, self.profile_response_path)
 
     def identify(self, token):
         # Get profile from both JWT token and profile API, then merge
