@@ -1211,6 +1211,10 @@ class TestOAuth2Plugin:
 class TestTokenExpiration:
     """Tests for JWT token expiration detection and handling"""
 
+    def setup_method(self):
+        """Restore real jwt module before each test (TestOAuth2Plugin mocks it globally)"""
+        oauth2.jwt = jwt
+
     def _create_rsa_keys(self):
         """Generate RSA key pair for testing"""
         from cryptography.hazmat.primitives.asymmetric import rsa
