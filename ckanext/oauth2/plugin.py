@@ -186,18 +186,23 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
             # Check if stored token is expired and refresh if needed
             if toolkit.g.usertoken and toolkit.g.usertoken.get('access_token') and self.oauth2helper.jwt_enable:
                 actual_name = user_name[0] if isinstance(user_name, tuple) else user_name
+                log.info('Checking token expiration for user %s', actual_name)
                 is_expired, _ = self.oauth2helper.check_token_expiration(
                     toolkit.g.usertoken['access_token']
                 )
+                log.info('Token expiration check for user %s: is_expired=%s', actual_name, is_expired)
                 if is_expired:
-                    log.info('Stored token expired for user %s, refreshing', actual_name)
+                    log.info('Stored token expired for user %s, attempting refresh', actual_name)
                     new_token = self.oauth2helper.refresh_token(actual_name)
+                    log.info('Refresh result for user %s: %s', actual_name, 'success' if new_token else 'failed')
                     if new_token:
                         toolkit.g.usertoken = new_token
                         log.info('Stored token refreshed for user %s', actual_name)
                     else:
                         log.warning('Stored token refresh failed for user %s', actual_name)
                         toolkit.g.usertoken = None
+                else:
+                    log.info('Stored token still valid for user %s', actual_name)
 
             toolkit.g.usertoken_refresh = partial(_refresh_and_save_token, user_name)
         else:
