@@ -199,8 +199,12 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
                         toolkit.g.usertoken = new_token
                         log.info('Stored token refreshed for user %s', actual_name)
                     else:
-                        log.warning('Stored token refresh failed for user %s', actual_name)
+                        log.warning('Stored token refresh failed for user %s, logging out', actual_name)
+                        toolkit.g.user = None
+                        toolkit.g.userobj = None
                         toolkit.g.usertoken = None
+                        g.user = None
+                        logout_user()
                 else:
                     log.info('Stored token still valid for user %s', actual_name)
 
