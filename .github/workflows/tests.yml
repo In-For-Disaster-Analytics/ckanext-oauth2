@@ -70,6 +70,7 @@ jobs:
           PGPASSWORD=postgres psql -U postgres -h localhost -c "CREATE DATABASE ckan_test WITH OWNER ckan_default;"
           PGPASSWORD=postgres psql -U postgres -h localhost -c "CREATE DATABASE datastore_test WITH OWNER ckan_default;"
           wget https://raw.githubusercontent.com/ckan/ckan/ckan-2.11.3/test-core.ini
+          pip install setuptools
           ckan -c test-core.ini db init
 
       - name: Install extension
