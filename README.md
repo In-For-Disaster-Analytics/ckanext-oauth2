@@ -1,4 +1,5 @@
-# OAuth2 CKAN extension
+# OAuth2 CKAN extension 
+[![Release](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/actions/workflows/release.yml/badge.svg?branch=main)](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/actions/workflows/release.yml)
 
 The OAuth2 extension allows site visitors to login through an OAuth2 server.
 
