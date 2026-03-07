@@ -18,41 +18,47 @@
 # along with OAuth2 CKAN Extension.  If not, see <http://www.gnu.org/licenses/>.
 
 import sqlalchemy as sa
-import ckan.model.meta as meta
+from sqlalchemy import Table, Column, types, orm
 import logging
-from ckan.model.domain_object import DomainObject
-from sqlalchemy.ext.declarative import declarative_base
+from ckan.model import meta, domain_object
 
 log = logging.getLogger(__name__)
 
-Base = declarative_base()
-metadata = Base.metadata
-
-UserToken = None
-def init_db(model):
-
-    global UserToken
-    if UserToken is None:
-
-        class _UserToken(model.DomainObject):
-
-            @classmethod
-            def by_user_name(cls, user_name):
-                return model.Session.query(cls).filter_by(user_name=user_name).first()
-
-        UserToken = _UserToken
-
-        user_token_table = sa.Table('user_token', model.meta.metadata,
-            sa.Column('user_name', sa.types.UnicodeText, primary_key=True),
-            sa.Column('access_token', sa.types.UnicodeText),
-            sa.Column('token_type', sa.types.UnicodeText),
-            sa.Column('refresh_token', sa.types.UnicodeText),
-            sa.Column('expires_in', sa.types.UnicodeText)
-        )
-
-        # Create the table only if it does not exist
-        user_token_table.create(checkfirst=True)
-
-        model.meta.mapper(UserToken, user_token_table)
+# Define the user_token table
+user_token_table = Table(
+    'user_token',
+    meta.metadata,
+    Column('user_name', types.UnicodeText, primary_key=True),
+    Column('access_token', types.UnicodeText),
+    Column('token_type', types.UnicodeText),
+    Column('refresh_token', types.UnicodeText),
+    Column('expires_in', types.UnicodeText),
+    extend_existing=True
+)
 
 
+class UserToken(domain_object.DomainObject):
+    """Model for storing OAuth2 tokens for users"""
+
+    @classmethod
+    def by_user_name(cls, user_name):
+        """Get user token by username"""
+        return meta.Session.query(cls).filter_by(user_name=user_name).first()
+
+
+# Map the class to the table using SQLAlchemy 1.4+ API
+_mapper_registry = orm.registry()
+_mapper_registry.map_imperatively(UserToken, user_token_table)
+
+
+def init_db():
+    """
+    Initialize the database tables.
+    Note: Table creation is handled by Alembic migrations.
+    Run: ckan db upgrade -p oauth2
+
+    This function ensures the ORM mapping is set up.
+    """
+    # The table and mapping are already defined above
+    # This function is kept for backward compatibility
+    log.debug('OAuth2 database models initialized')

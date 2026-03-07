@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import click
-import ckanext.oauth2.utils as utils
 
 
 @click.group()

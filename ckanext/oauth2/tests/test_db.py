@@ -17,43 +17,29 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with OAuth2 CKAN Extension.  If not, see <http://www.gnu.org/licenses/>.
 
-import unittest
-import ckanext.oauth2.db as db
-
-from mock import MagicMock
+import pytest
+from ckanext.oauth2 import db
 
 
-class DBTest(unittest.TestCase):
+class TestDB:
 
-    def setUp(self):
-        # Restart databse initial status
-        db.UserToken = None 
+    def test_user_token_class_exists(self):
+        """Test that UserToken class is defined"""
+        assert db.UserToken is not None
+        assert hasattr(db.UserToken, 'by_user_name')
 
-        # Create mocks
-        self._sa = db.sa
-        db.sa = MagicMock()
+    def test_user_token_table_exists(self):
+        """Test that user_token_table is defined"""
+        assert db.user_token_table is not None
+        assert db.user_token_table.name == 'user_token'
 
-    def tearDown(self):
-        db.UserToken = None
-        db.sa = self._sa
+    def test_user_token_table_columns(self):
+        """Test that user_token_table has the correct columns"""
+        columns = {c.name for c in db.user_token_table.columns}
+        expected_columns = {'user_name', 'access_token', 'token_type', 'refresh_token', 'expires_in'}
+        assert columns == expected_columns
 
-    def test_initdb_not_initialized(self):
-
-        # Call the function
-        model = MagicMock()
-        db.init_db(model)
-
-        # Assert that table method has been called
-        db.sa.Table.assert_called_once()
-        model.meta.mapper.assert_called_once()
-
-    def test_initdb_initialized(self):
-        db.UserToken = MagicMock()
-
-        # Call the function
-        model = MagicMock()
-        db.init_db(model)
-
-        # Assert that table method has been called
-        self.assertEquals(0, db.sa.Table.call_count)
-        self.assertEquals(0, model.meta.mapper.call_count)
+    def test_init_db(self):
+        """Test that init_db runs without errors"""
+        # This should not raise any exceptions
+        db.init_db()

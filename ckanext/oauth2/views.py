@@ -1,26 +1,31 @@
 # -*- coding: utf-8 -*-
 
 import logging
-from flask import Blueprint, jsonify, make_response
+from flask import Blueprint, jsonify, make_response, redirect
 import logging
 from ckanext.oauth2 import constants
+from ckanext.oauth2.oauth2 import get_came_from
 from ckan.common import session
 import ckan.lib.helpers as helpers
 import ckan.plugins.toolkit as toolkit
 import urllib.parse
-from ckanext.oauth2.oauth2 import OAuth2Helper
+import ckan.plugins as plugins
+import ckan.model as model
 
 log = logging.getLogger(__name__)
 # service_proxy = Blueprint("service_proxy", __name__)
 oauth2 = Blueprint("oauth2", __name__)
 
-oauth2helper = OAuth2Helper()
+def _get_oauth2helper():
+    """Get OAuth2Helper from the loaded plugin"""
+    plugin = plugins.get_plugin('oauth2')
+    return plugin.oauth2helper
 
 def _get_previous_page(default_page):
-    if 'came_from' not in toolkit.request.params:
+    if 'came_from' not in toolkit.request.args:
         came_from_url = toolkit.request.headers.get('Referer', default_page)
     else:
-        came_from_url = toolkit.request.params.get('came_from', default_page)
+        came_from_url = toolkit.request.args.get('came_from', default_page)
 
     came_from_url_parsed = urllib.parse.urlparse(came_from_url)
 
@@ -47,38 +52,38 @@ def _get_previous_page(default_page):
 def login():
     log.debug('login')
     came_from_url = _get_previous_page(constants.INITIAL_PAGE)
-    return oauth2helper.challenge(came_from_url)
+    return _get_oauth2helper().challenge(came_from_url)
 
 @oauth2.route('/oauth2/callback')
 def callback():
     try:
+        oauth2helper = _get_oauth2helper()
         token = oauth2helper.get_token()
-        user_name = oauth2helper.identify(token)
-        response = oauth2helper.remember(user_name)
-        log.debug(f'usr:{user_name}')
+        # log.debug(f'token:{token}')
+        user_name,user_obj = oauth2helper.identify(token)
+        oauth2helper.log_user_into_ckan(user_obj)
         oauth2helper.update_token(user_name, token)
-        response = oauth2helper.redirect_from_callback(response)
+        response = oauth2helper.redirect_from_callback()
     except Exception as e:
-        session.save()
+        model.Session.rollback()
+
         # If the callback is called with an error, we must show the message
-        error_description = toolkit.request.GET.get('error_description')
+        error_description = toolkit.request.args.get('error_description')
         if not error_description:
-            if e.message:
-                error_description = e.message
+            if str(e):
+                error_description = str(e)
             elif hasattr(e, 'description') and e.description:
                 error_description = e.description
             elif hasattr(e, 'error') and e.error:
                 error_description = e.error
             else:
                 error_description = type(e).__name__
-        response = jsonify()
-        response.status_code = 302
-        redirect_url = oauth2.get_came_from(toolkit.request.params.get('state'))
+        log.error(f'login error: {error_description}')
+        redirect_url = get_came_from(toolkit.request.args.get('state'))
         redirect_url = '/' if redirect_url == constants.INITIAL_PAGE else redirect_url
-        response.location = redirect_url
-
+        response = redirect(redirect_url)
         helpers.flash_error(error_description)
-        # make_response((content, 302, headers))
+
     return response
 
 def get_blueprints():
