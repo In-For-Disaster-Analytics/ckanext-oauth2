@@ -2,6 +2,114 @@
 
 <!-- version list -->
 
+## v1.0.0-beta.18 (2026-03-07)
+
+### Bug Fixes
+
+- Call login_user() in identify() for Flask-Login integration
+  ([`1971327`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/1971327db0ae792e7c39d3b249c1764a1f46aa0a))
+
+- Correct test.ini config path for CKAN 2.11
+  ([`2415d87`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/2415d875861b3cea29af398f055cad562b8a4948))
+
+- Remove sensitive debug logging and exempt API from CSRF
+  ([`cc79241`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/cc7924122695cca8f4793aa493510b78895e0d74))
+
+- Remove utils
+  ([`e05f702`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/e05f702af6ab28dd7a8f0dde35e9e0aa18c666f7))
+
+- Sync with ckan docker
+  ([`c1a1980`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/c1a19805041c3945279bea9d57050af8e1013774))
+
+- **02-02**: Logout user when stored token refresh fails
+  ([`b3d06e5`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/b3d06e52893a79eb7a4502d4b93dc098039b2c8f))
+
+- **02-03**: Fix Bearer token 500 by unpacking identify() tuple return
+  ([`8d47984`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/8d47984b4dbff916f01b783614cc4331bae54b75))
+
+- **migration**: Use plugin-scoped alembic version table
+  ([`dd3ddee`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/dd3ddee2bb118d140802c1ab3a199741c7f6113a))
+
+- **oauth2**: Fix failing tests and SQLAlchemy deprecation warning
+  ([`3c1058e`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/3c1058eb54addd6b12ade31c282da08250d7556e))
+
+- **oauth2**: Handle token refresh failures and logout user
+  ([`ea51489`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/ea51489c5485ef20cdf70bfcfd0fed195a2dde81))
+
+- **oauth2**: Unwrap Tapis result in profile API response
+  ([`1bb2541`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/1bb25411d94be36d55dcdbd811465928223af96b))
+
+### Continuous Integration
+
+- Align CI database setup with test.ini credentials
+  ([`e4e78d8`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/e4e78d80362a8ead7d6aae3de91cf06d51f15248))
+
+- Ensure setuptools available after CKAN install
+  ([`56ca4ce`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/56ca4ceeaeed16fa26fee0cba97b46c3e59c48d1))
+
+- Install extension before db init
+  ([`7cfd4cd`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/7cfd4cdd7f5198fb755f7112135ec44c02adc46b))
+
+- Install setuptools before ckan db init
+  ([`3cdd911`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/3cdd9113e0de00996fcbc6f200a1b04c379831e5))
+
+- Pin setuptools<82 for pkg_resources compatibility
+  ([`98eb9f0`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/98eb9f0d869519c4059c713c6fb19b2043e74961))
+
+- Update test matrix to CKAN 2.11.3 and Python 3.10
+  ([`6e5a026`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/6e5a026266d5424af4108dc0cf0fa1e91d5b79f2))
+
+### Documentation
+
+- Add response unwrapping configuration to README
+  ([`7b72aa3`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/7b72aa324d4f35ffb53e1dbd7899a7baaa6045fa))
+
+- Update installation and testing instructions in CLAUDE.md
+  ([`fb36604`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/fb36604f0dc01c1d76429e833eb0cc8f2d54df06))
+
+### Features
+
+- **02-01**: Add token auto-refresh to plugin identify() flow
+  ([`ddd471b`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/ddd471b78410e940fe3a09ba9cdf69e2a5dbc9a7))
+
+- **02-01**: Fix _decode_jwt verify=False and add check_token_expiration helper
+  ([`7581e1c`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/7581e1c8481bbc1b30b483ba7021f4b5d65f9b66))
+
+- **oauth2**: Add generic _unwrap_response with configurable dot-path
+  ([`5b35fc3`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/5b35fc3dba6ff396589f1e9fcde4bf4def906e0b))
+
+- **oauth2**: Add logging for profile field extraction
+  ([`9e2b89f`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/9e2b89fa75d8b7407bfad9fe0077307a4ff0b23d))
+
+- **oauth2**: Enhance token expiration logging and refresh process
+  ([`5edf24b`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/5edf24b77a61a1f5ac2d51d6b1cc76f970d72f2c))
+
+- **oauth2**: Improve token refresh failure handling and user logout
+  ([`348fdeb`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/348fdeb7716b0df2cce20e0b1803fed789afdbe0))
+
+- **oauth2**: Update compliance_fix to use configurable response path
+  ([`e9fc9a4`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/e9fc9a4d739df3db45be84d7e1548f2b3647ec0c))
+
+- **oauth2**: Update get_profile_from_api to use configurable response path
+  ([`16998f9`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/16998f92ddbb9fc41b0aebc2cd35f7a157aa50bf))
+
+- **tests**: Enhance session expiration test to verify user logout on refresh failure
+  ([`372cba8`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/372cba8ed0c1ab6145a94795896522854c7f946b))
+
+### Refactoring
+
+- **oauth2**: Add clarifying comments to _compliance_fix
+  ([`bb9162d`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/bb9162dcc0559ff826a7331a483e4bba86e69f82))
+
+- **oauth2**: Complete migration from repoze.who to flask-login
+  ([`d207958`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/d2079587a82c95a7826c53461cabf249f95fc674))
+
+### Testing
+
+- **02-01**: Add comprehensive tests for token expiration and refresh
+  ([`9dd0d34`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/9dd0d34807ffa5bc0b4c6fe7b8134f3a8bfe1d1b))
+
+
 ## v1.0.0-beta.17 (2026-01-03)
 
 ### Bug Fixes
