@@ -26,7 +26,7 @@ import os
 import jwt
 
 from functools import partial
-from flask_login import current_user, logout_user
+from flask_login import current_user, login_user, logout_user
 from ckan import plugins
 from ckan.common import g
 from ckan.plugins import toolkit
@@ -183,6 +183,11 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
             toolkit.g.user = user_name
             toolkit.g.userobj = user_obj if user_obj else model.User.by_name(user_name)
             toolkit.g.usertoken = self.oauth2helper.get_stored_token(user_name)
+
+            # Set Flask-Login's current_user so CKAN 2.11 API views
+            # (which use current_user.name for authorization) recognize
+            # the authenticated user.
+            login_user(toolkit.g.userobj)
 
             # Check if stored token is expired and refresh if needed
             if toolkit.g.usertoken and toolkit.g.usertoken.get('access_token') and self.oauth2helper.jwt_enable:

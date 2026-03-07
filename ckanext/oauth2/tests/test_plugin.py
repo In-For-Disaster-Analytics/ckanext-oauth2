@@ -114,8 +114,9 @@ class TestPlugin:
         ({CUSTOM_AUTHORIZATION_HEADER: 'api_key'},        None,                      'test2', 'test2', False),
 
     ])
+    @patch('ckanext.oauth2.plugin.login_user')
     @patch('ckanext.oauth2.plugin.model')
-    def test_identify(self, mock_model, plugin_setup, headers, authenticate_result, identity, expected_user, oauth2):
+    def test_identify(self, mock_model, mock_login_user, plugin_setup, headers, authenticate_result, identity, expected_user, oauth2):
         mock_model.User.by_name.return_value = MagicMock()
 
         if not oauth2:
@@ -158,6 +159,7 @@ class TestPlugin:
         plugin_setup.oauth2helper.identify = MagicMock(side_effect=authenticate_side_effect)
         plugin_setup.oauth2helper.get_stored_token = MagicMock(return_value=usertoken)
         plugin_setup.oauth2helper.refresh_token = MagicMock(return_value=newtoken)
+        plugin_setup.oauth2helper.check_token_expiration = MagicMock(return_value=(False, None))
 
         # Authentication header is not included
         plugin.toolkit.request.headers = headers
@@ -195,8 +197,15 @@ class TestPlugin:
             plugin_setup.oauth2helper.refresh_token.assert_called_once_with(expected_user)
             assert newtoken == plugin.toolkit.g.usertoken
 
+        # Verify login_user called when user is authenticated, not called otherwise
+        if expected_user is not None:
+            mock_login_user.assert_called_once()
+        else:
+            mock_login_user.assert_not_called()
+
+    @patch('ckanext.oauth2.plugin.login_user')
     @patch('ckanext.oauth2.plugin.model')
-    def test_identify_expired_token_refresh_succeeds(self, mock_model, plugin_setup):
+    def test_identify_expired_token_refresh_succeeds(self, mock_model, mock_login_user, plugin_setup):
         """Test expired JWT token in Authorization header triggers refresh successfully"""
         # Mock model.User.by_name to avoid database queries
         mock_user = MagicMock()
@@ -222,7 +231,8 @@ class TestPlugin:
         plugin_setup.oauth2helper.refresh_token.assert_called_once_with('testuser')
         assert plugin.toolkit.g.user == 'testuser'
 
-    def test_identify_expired_token_refresh_fails(self, plugin_setup):
+    @patch('ckanext.oauth2.plugin.login_user')
+    def test_identify_expired_token_refresh_fails(self, mock_login_user, plugin_setup):
         """Test expired JWT token refresh failure leaves user unauthenticated"""
         # Mock current_user
         self._set_identity(None)
@@ -247,7 +257,8 @@ class TestPlugin:
         plugin_setup.oauth2helper.refresh_token.assert_called_once_with('testuser')
         assert plugin.toolkit.g.user is None
 
-    def test_identify_expired_token_no_username(self, plugin_setup):
+    @patch('ckanext.oauth2.plugin.login_user')
+    def test_identify_expired_token_no_username(self, mock_login_user, plugin_setup):
         """Test expired token without username field in claims"""
         # Mock current_user
         self._set_identity(None)
@@ -272,8 +283,9 @@ class TestPlugin:
         plugin_setup.oauth2helper.refresh_token.assert_not_called()
         assert plugin.toolkit.g.user is None
 
+    @patch('ckanext.oauth2.plugin.login_user')
     @patch('ckanext.oauth2.plugin.model')
-    def test_identify_session_expired_token_refresh_succeeds(self, mock_model, plugin_setup):
+    def test_identify_session_expired_token_refresh_succeeds(self, mock_model, mock_login_user, plugin_setup):
         """Test session auth with expired stored token triggers refresh successfully"""
         # Mock model.User.by_name to avoid database queries
         mock_user = MagicMock()
@@ -306,9 +318,10 @@ class TestPlugin:
         plugin_setup.oauth2helper.refresh_token.assert_called_once_with('testuser')
         assert plugin.toolkit.g.usertoken == new_token
 
+    @patch('ckanext.oauth2.plugin.login_user')
     @patch('ckanext.oauth2.plugin.logout_user')
     @patch('ckanext.oauth2.plugin.model')
-    def test_identify_session_expired_token_refresh_fails(self, mock_model, mock_logout, plugin_setup):
+    def test_identify_session_expired_token_refresh_fails(self, mock_model, mock_logout, mock_login_user, plugin_setup):
         """Test session auth with expired stored token and failed refresh logs user out"""
         # Mock model.User.by_name to avoid database queries
         mock_user = MagicMock()
@@ -340,8 +353,9 @@ class TestPlugin:
         assert plugin.toolkit.g.usertoken is None
         mock_logout.assert_called_once()
 
+    @patch('ckanext.oauth2.plugin.login_user')
     @patch('ckanext.oauth2.plugin.model')
-    def test_identify_valid_token_no_refresh(self, mock_model, plugin_setup):
+    def test_identify_valid_token_no_refresh(self, mock_model, mock_login_user, plugin_setup):
         """Test valid (non-expired) JWT token does not trigger refresh"""
         # Mock model.User.by_name to avoid database queries
         mock_user = MagicMock()
