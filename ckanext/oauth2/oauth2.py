@@ -65,7 +65,7 @@ class OAuth2Helper(object):
         jwt_public_key_raw = str(os.environ.get('CKAN_OAUTH2_JWT_PUBLIC_KEY', cfg.get('ckan.oauth2.jwt.public_key', ''))).strip()
         self.jwt_public_key = jwt_public_key_raw.replace('\\n', '\n') if jwt_public_key_raw else ''
         if self.jwt_public_key:
-            log.debug(f'JWT public key loaded, starts with: {self.jwt_public_key[:50]}...')
+            log.debug('JWT public key loaded')
 
         # JWT token field names - configurable for different OAuth2 providers
         self.jwt_username_field = str(os.environ.get('CKAN_OAUTH2_JWT_USERNAME_FIELD', cfg.get('ckan.oauth2.jwt.username_field', 'username'))).strip()
@@ -174,8 +174,7 @@ class OAuth2Helper(object):
 
         try:
             authorization_response = toolkit.request.url
-            log.debug(f'get_token: authorization_response={authorization_response}')
-            log.debug(f'get_token: token_endpoint={self.token_endpoint}')
+            log.debug('get_token: fetching token from endpoint')
             token = oauth.fetch_token(self.token_endpoint,
                                       client_id=self.client_id,
                                       client_secret=self.client_secret,
@@ -391,11 +390,7 @@ class OAuth2Helper(object):
         """
         Decode JWT token using configured algorithm and secret/public key.
         """
-        log.debug(f"token: {token}")
-        log.debug(f"verify: {verify}")
-        log.debug(f"jwt_algorithm: {self.jwt_algorithm}")
-        log.debug(f"jwt_secret: {self.jwt_secret}")
-        log.debug(f"jwt_public_key: {self.jwt_public_key}")
+        log.debug("_decode_jwt: verify=%s, algorithm=%s", verify, self.jwt_algorithm)
         try:
             if verify:
                 # Determine the key to use based on algorithm

@@ -89,6 +89,23 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
     # plugins.implements(plugins.IRoutes, inherit=True)
     plugins.implements(plugins.IConfigurer)
     plugins.implements(plugins.ITemplateHelpers)
+    plugins.implements(plugins.IMiddleware, inherit=True)
+
+    # IMiddleware
+
+    def make_middleware(self, app, config):
+        # Exempt CKAN API blueprint from CSRF so Bearer token API calls work.
+        # CKAN 2.11 enables Flask-WTF CSRFProtect globally but does not exempt
+        # its own API endpoints, causing 400 on POST/PUT/DELETE with Bearer auth.
+        # This runs after all blueprints are registered.
+        try:
+            from ckan.config.middleware.flask_app import csrf
+            from ckan.views.api import api as api_blueprint
+            csrf.exempt(api_blueprint)
+            log.debug('Exempted CKAN API blueprint from CSRF protection')
+        except (ImportError, AttributeError) as e:
+            log.debug('Could not exempt API blueprint from CSRF: %s', e)
+        return app
 
 
     def __init__(self, name=None):
