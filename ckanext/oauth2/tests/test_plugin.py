@@ -114,7 +114,9 @@ class TestPlugin:
         ({CUSTOM_AUTHORIZATION_HEADER: 'api_key'},        None,                      'test2', 'test2', False),
 
     ])
-    def test_identify(self, plugin_setup, headers, authenticate_result, identity, expected_user, oauth2):
+    @patch('ckanext.oauth2.plugin.model')
+    def test_identify(self, mock_model, plugin_setup, headers, authenticate_result, identity, expected_user, oauth2):
+        mock_model.User.by_name.return_value = MagicMock()
 
         if not oauth2:
             plugin.toolkit.config = {
@@ -148,8 +150,10 @@ class TestPlugin:
         def authenticate_side_effect(identity):
             if isinstance(authenticate_result, Exception):
                 raise authenticate_result
+            elif authenticate_result is not None:
+                return (authenticate_result, MagicMock())
             else:
-                return authenticate_result
+                return (None, None)
 
         plugin_setup.oauth2helper.identify = MagicMock(side_effect=authenticate_side_effect)
         plugin_setup.oauth2helper.get_stored_token = MagicMock(return_value=usertoken)

@@ -142,6 +142,7 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
 
         apikey = toolkit.request.headers.get(self.authorization_header, '')
         user_name = None
+        user_obj = None
 
         if apikey:
 
@@ -149,7 +150,7 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
                 apikey = apikey[7:].strip()
             try:
                 token = {'access_token': apikey}
-                user_name = self.oauth2helper.identify(token)
+                user_name, user_obj = self.oauth2helper.identify(token)
                 log.debug(f'Auth success: {user_name}')
             except jwt.ExpiredSignatureError:
                 log.info('JWT token expired for API request, attempting refresh')
@@ -180,23 +181,22 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
         if user_name:
             g.user = user_name
             toolkit.g.user = user_name
-            toolkit.g.userobj = model.User.by_name(user_name)
+            toolkit.g.userobj = user_obj if user_obj else model.User.by_name(user_name)
             toolkit.g.usertoken = self.oauth2helper.get_stored_token(user_name)
 
             # Check if stored token is expired and refresh if needed
             if toolkit.g.usertoken and toolkit.g.usertoken.get('access_token') and self.oauth2helper.jwt_enable:
-                actual_name = user_name[0] if isinstance(user_name, tuple) else user_name
                 is_expired, _ = self.oauth2helper.check_token_expiration(
                     toolkit.g.usertoken['access_token']
                 )
                 if is_expired:
-                    log.info('Stored token expired for user %s, attempting refresh', actual_name)
-                    new_token = self.oauth2helper.refresh_token(actual_name)
+                    log.info('Stored token expired for user %s, attempting refresh', user_name)
+                    new_token = self.oauth2helper.refresh_token(user_name)
                     if new_token:
                         toolkit.g.usertoken = new_token
-                        log.info('Stored token refreshed for user %s', actual_name)
+                        log.info('Stored token refreshed for user %s', user_name)
                     else:
-                        log.warning('Stored token refresh failed for user %s, logging out', actual_name)
+                        log.warning('Stored token refresh failed for user %s, logging out', user_name)
                         toolkit.g.user = None
                         toolkit.g.userobj = None
                         toolkit.g.usertoken = None
