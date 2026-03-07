@@ -65,12 +65,9 @@ jobs:
 
       - name: Setup PostgreSQL
         run: |
-          PGPASSWORD=postgres psql -U postgres -h localhost -c "CREATE USER ckan_default WITH PASSWORD 'pass';"
-          PGPASSWORD=postgres psql -U postgres -h localhost -c "CREATE USER datastore_default WITH PASSWORD 'pass';"
-          PGPASSWORD=postgres psql -U postgres -h localhost -c "CREATE DATABASE ckan_test WITH OWNER ckan_default;"
-          PGPASSWORD=postgres psql -U postgres -h localhost -c "CREATE DATABASE datastore_test WITH OWNER ckan_default;"
-          wget https://raw.githubusercontent.com/ckan/ckan/ckan-2.11.3/test-core.ini
-          ckan -c test-core.ini db init
+          PGPASSWORD=postgres psql -U postgres -h localhost -c "CREATE USER ckandbuser WITH PASSWORD 'ckandbpassword';"
+          PGPASSWORD=postgres psql -U postgres -h localhost -c "CREATE DATABASE ckandb WITH OWNER ckandbuser;"
+          ckan -c test.ini db init
 
       - name: Install extension
         run: pip install -e .
