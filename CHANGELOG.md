@@ -2,6 +2,24 @@
 
 <!-- version list -->
 
+## v1.1.0 (2026-03-21)
+
+### Bug Fixes
+
+- Migrate
+  ([`be8df0a`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/be8df0a46fc02d09c4b35ca9250a3dea54a9d1be))
+
+### Features
+
+- **02-01**: Add X-Tapis-Token fallback to identify() method
+  ([`f3ca069`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/f3ca0694ede73bebbb02501bff715faaae7a0d3d))
+
+### Testing
+
+- **02-01**: Add X-Tapis-Token test coverage and fix duplicate abort
+  ([`f63c212`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/f63c212cdd6ce78f11bc28fb019513068b6ad0ea))
+
+
 ## v1.0.0 (2026-03-07)
 
 - Initial Release
