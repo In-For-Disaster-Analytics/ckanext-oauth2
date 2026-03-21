@@ -157,7 +157,15 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
                 g.user = None
                 logout_user()
 
+        tapis_header_used = False
         apikey = toolkit.request.headers.get(self.authorization_header, '')
+
+        if not apikey:
+            tapis_token = toolkit.request.headers.get('X-Tapis-Token', '')
+            if tapis_token:
+                apikey = tapis_token
+                tapis_header_used = True
+
         user_name = None
         user_obj = None
 
@@ -187,7 +195,11 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
                     log.error('Error during token refresh: %s', e)
             except Exception as e:
                 log.debug(f'Auth error: {e}')
-                pass
+                if tapis_header_used:
+                    toolkit.abort(401, 'Invalid or expired X-Tapis-Token')
+
+        if tapis_header_used and user_name is None:
+            toolkit.abort(401, 'Invalid or expired X-Tapis-Token')
 
         # If the authentication via API fails, we can still log in the user using session.
         if user_name is None and current_user.is_authenticated:
