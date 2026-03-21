@@ -195,8 +195,6 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
                     log.error('Error during token refresh: %s', e)
             except Exception as e:
                 log.debug(f'Auth error: {e}')
-                if tapis_header_used:
-                    toolkit.abort(401, 'Invalid or expired X-Tapis-Token')
 
         if tapis_header_used and user_name is None:
             toolkit.abort(401, 'Invalid or expired X-Tapis-Token')

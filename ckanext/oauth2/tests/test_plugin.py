@@ -113,6 +113,13 @@ class TestPlugin:
         ({CUSTOM_AUTHORIZATION_HEADER: 'api_key'},        ValueError('Invalid Key'), None,    None,    False),
         ({CUSTOM_AUTHORIZATION_HEADER: 'api_key'},        None,                      'test2', 'test2', False),
 
+        # X-Tapis-Token: valid token authenticates user
+        ({'X-Tapis-Token': 'api_key'},                                               'test',  None,    'test',  True),
+        # X-Tapis-Token: valid token, session identity ignored in favor of token identity
+        ({'X-Tapis-Token': 'api_key'},                                               'test',  'test2', 'test',  True),
+        # Both headers present -- Authorization: Bearer wins
+        ({OAUTH2_AUTHORIZATION_HEADER: 'Bearer api_key', 'X-Tapis-Token': 'other_key'}, 'test', None, 'test',  True),
+
     ])
     @patch('ckanext.oauth2.plugin.login_user')
     @patch('ckanext.oauth2.plugin.model')
@@ -181,6 +188,8 @@ class TestPlugin:
             plugin_setup.oauth2helper.identify.assert_called_once_with({'access_token': token})
         elif not oauth2 and CUSTOM_AUTHORIZATION_HEADER in headers:
             plugin_setup.oauth2helper.identify.assert_called_once_with({'access_token': headers[CUSTOM_AUTHORIZATION_HEADER]})
+        elif 'X-Tapis-Token' in headers and OAUTH2_AUTHORIZATION_HEADER not in headers:
+            plugin_setup.oauth2helper.identify.assert_called_once_with({'access_token': headers['X-Tapis-Token']})
         else:
             assert plugin_setup.oauth2helper.identify.call_count == 0
 
@@ -378,3 +387,62 @@ class TestPlugin:
         # Verify refresh was NOT called (because identify succeeded, no ExpiredSignatureError)
         plugin_setup.oauth2helper.refresh_token.assert_not_called()
         assert plugin.toolkit.g.user is not None
+
+    @patch('ckanext.oauth2.plugin.login_user')
+    def test_identify_x_tapis_token_invalid_returns_401(self, mock_login_user, plugin_setup):
+        """X-Tapis-Token with invalid token must return 401, not anonymous"""
+        self._set_identity(None)
+        plugin_setup.oauth2helper.identify = MagicMock(side_effect=ValueError('Invalid Key'))
+        plugin_setup.oauth2helper.get_stored_token = MagicMock(return_value=None)
+
+        plugin.toolkit.request.headers = {'X-Tapis-Token': 'bad_token'}
+        plugin.toolkit.g.user = None
+        plugin.toolkit.g.usertoken = None
+
+        plugin_setup.identify()
+
+        plugin.toolkit.abort.assert_called_once_with(401, 'Invalid or expired X-Tapis-Token')
+
+    @patch('ckanext.oauth2.plugin.login_user')
+    def test_identify_x_tapis_token_expired_returns_401(self, mock_login_user, plugin_setup):
+        """X-Tapis-Token with expired token and no refresh must return 401"""
+        self._set_identity(None)
+        plugin_setup.oauth2helper.jwt_enable = True
+        plugin_setup.oauth2helper.jwt_username_field = 'tapis/username'
+        plugin_setup.oauth2helper.identify = MagicMock(side_effect=jwt.ExpiredSignatureError("Token expired"))
+        plugin_setup.oauth2helper._decode_jwt = MagicMock(return_value={'tapis/username': 'testuser'})
+        plugin_setup.oauth2helper.refresh_token = MagicMock(return_value=None)
+        plugin_setup.oauth2helper.get_stored_token = MagicMock(return_value=None)
+
+        plugin.toolkit.request.headers = {'X-Tapis-Token': 'expired_token'}
+        plugin.toolkit.g.user = None
+        plugin.g.user = None
+
+        plugin_setup.identify()
+
+        plugin.toolkit.abort.assert_called_once_with(401, 'Invalid or expired X-Tapis-Token')
+
+    @patch('ckanext.oauth2.plugin.login_user')
+    @patch('ckanext.oauth2.plugin.model')
+    def test_identify_authorization_header_priority_over_x_tapis_token(self, mock_model, mock_login_user, plugin_setup):
+        """When both headers present, Authorization: Bearer is used, X-Tapis-Token ignored"""
+        mock_model.User.by_name.return_value = MagicMock()
+        self._set_identity(None)
+
+        plugin_setup.oauth2helper.identify = MagicMock(return_value=('bearer_user', MagicMock()))
+        plugin_setup.oauth2helper.get_stored_token = MagicMock(return_value=None)
+        plugin_setup.oauth2helper.check_token_expiration = MagicMock(return_value=(False, None))
+
+        plugin.toolkit.request.headers = {
+            OAUTH2_AUTHORIZATION_HEADER: 'Bearer good_token',
+            'X-Tapis-Token': 'other_token'
+        }
+        plugin.toolkit.g.user = None
+        plugin.toolkit.g.usertoken = None
+        plugin.g.user = None
+
+        plugin_setup.identify()
+
+        # Verify identify was called with the Bearer token, not the X-Tapis-Token
+        plugin_setup.oauth2helper.identify.assert_called_once_with({'access_token': 'good_token'})
+        assert plugin.toolkit.g.user == 'bearer_user'
