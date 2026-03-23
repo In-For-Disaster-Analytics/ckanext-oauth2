@@ -245,7 +245,7 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
             user_name = current_user.name
             g.user = user_name
             toolkit.g.user = user_name
-            toolkit.g.userobj = current_user if hasattr(current_user, 'name') else model.User.by_name(user_name)
+            toolkit.g.userobj = model.User.by_name(user_name)
             toolkit.g.usertoken = self.oauth2helper.get_stored_token(user_name)
             toolkit.g.usertoken_refresh = partial(_refresh_and_save_token, user_name)
 
