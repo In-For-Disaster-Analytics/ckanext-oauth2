@@ -91,6 +91,9 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
     plugins.implements(plugins.ITemplateHelpers)
     plugins.implements(plugins.IMiddleware, inherit=True)
 
+    _request_loader_installed = False
+    _request_loader_attempted = False
+
     # IMiddleware
 
     def make_middleware(self, app, config):
@@ -135,8 +138,70 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
             log.error(f"Error getting stored token for user {user_name}: {e}")
             return None
 
+    def _install_request_loader(self):
+        """Override Flask-Login's request_loader to handle OAuth2 Bearer/X-Tapis-Token.
+
+        Must be called lazily (at first request time) because login_manager is
+        created after make_middleware() runs in CKAN 2.11.3's flask_app.py.
+        """
+        from flask import current_app
+
+        # Dedicated try/except for this private import so failures are
+        # clearly diagnosed in logs rather than silently swallowed.
+        try:
+            from ckan.views import _get_user_for_apitoken
+        except ImportError as ie:
+            log.error(
+                'Cannot import _get_user_for_apitoken from ckan.views -- '
+                'request_loader will NOT be installed. CKAN native API '
+                'token fallback will be unavailable. ImportError: %s', ie
+            )
+            raise
+
+        login_manager = current_app.login_manager
+        plugin_ref = self  # closure reference
+
+        @login_manager.request_loader
+        def oauth2_load_user_from_request(request):
+            """Flask-Login request_loader: validate Bearer/X-Tapis-Token, fall back to CKAN API tokens."""
+            g.login_via_auth_header = True
+
+            apikey = request.headers.get(plugin_ref.authorization_header, '')
+            if not apikey:
+                apikey = request.headers.get('X-Tapis-Token', '')
+
+            if apikey:
+                if apikey.startswith('Bearer '):
+                    apikey = apikey[7:].strip()
+                try:
+                    token = {'access_token': apikey}
+                    user_name, user_obj = plugin_ref.oauth2helper.identify(token)
+                    if user_obj is None and user_name:
+                        user_obj = model.User.by_name(user_name)
+                    if user_obj is not None:
+                        return user_obj
+                except Exception as e:
+                    # Do NOT abort. The X-Tapis-Token 401 abort is handled
+                    # in identify() to preserve Phase 2 behavior.
+                    log.debug('request_loader: OAuth2 identify failed: %s', e)
+
+            # Fall back to CKAN's native API token handling
+            return _get_user_for_apitoken()
+
+        log.info('Registered OAuth2 request_loader on Flask-Login login_manager')
+
     def identify(self):
         log.debug('Starting identify process')
+
+        # Install custom request_loader on first call (login_manager doesn't
+        # exist when make_middleware runs, so we register lazily here).
+        if not self._request_loader_installed and not self._request_loader_attempted:
+            self._request_loader_attempted = True
+            try:
+                self._install_request_loader()
+                self._request_loader_installed = True
+            except Exception as e:
+                log.error('Failed to install OAuth2 request_loader: %s', e)
 
         def _refresh_and_save_token(user_name):
             log.debug(f'Refreshing token for user {user_name}')
@@ -157,6 +222,35 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
                 g.user = None
                 logout_user()
 
+        def _check_and_refresh_stored_token(user_name):
+            """Check if stored token is expired and refresh if needed.
+
+            Returns True if the user should be logged out (refresh failed).
+            """
+            if toolkit.g.usertoken and toolkit.g.usertoken.get('access_token') and self.oauth2helper.jwt_enable:
+                is_expired, _ = self.oauth2helper.check_token_expiration(
+                    toolkit.g.usertoken['access_token']
+                )
+                if is_expired:
+                    log.info('Stored token expired for user %s, attempting refresh', user_name)
+                    new_token = self.oauth2helper.refresh_token(user_name)
+                    if new_token:
+                        toolkit.g.usertoken = new_token
+                        log.info('Stored token refreshed for user %s', user_name)
+                    else:
+                        log.warning('Stored token refresh failed for user %s, logging out', user_name)
+                        toolkit.g.user = None
+                        toolkit.g.userobj = None
+                        toolkit.g.usertoken = None
+                        g.user = None
+                        logout_user()
+                        return True
+            return False
+
+        # Extract apikey BEFORE the early-return guard so that bearer tokens
+        # in the request always take precedence over session identity.
+        # This preserves the invariant tested in
+        # test_identify_bearer_token_beats_session_identity.
         tapis_header_used = False
         apikey = toolkit.request.headers.get(self.authorization_header, '')
 
@@ -165,6 +259,30 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
             if tapis_token:
                 apikey = tapis_token
                 tapis_header_used = True
+
+        # If the request_loader already set current_user for this request
+        # AND there is no bearer token header present, skip JWT decode in
+        # identify() to avoid duplicate validation. Just populate g.user,
+        # g.usertoken, g.usertoken_refresh which CKAN extensions and
+        # templates depend on.
+        #
+        # When a bearer token IS present, we must NOT short-circuit -- the
+        # token identity must take precedence over any session identity.
+        if not apikey and current_user.is_authenticated:
+            user_name = current_user.name
+            g.user = user_name
+            toolkit.g.user = user_name
+            toolkit.g.userobj = model.User.by_name(user_name)
+            toolkit.g.usertoken = self.oauth2helper.get_stored_token(user_name)
+            toolkit.g.usertoken_refresh = partial(_refresh_and_save_token, user_name)
+
+            # Belt-and-suspenders: ensure login_user is called so CKAN 2.11 API
+            # views have current_user set even if request_loader is not installed yet.
+            login_user(toolkit.g.userobj)
+
+            if _check_and_refresh_stored_token(user_name):
+                return
+            return
 
         user_name = None
         user_obj = None
@@ -216,24 +334,7 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
             # the authenticated user.
             login_user(toolkit.g.userobj)
 
-            # Check if stored token is expired and refresh if needed
-            if toolkit.g.usertoken and toolkit.g.usertoken.get('access_token') and self.oauth2helper.jwt_enable:
-                is_expired, _ = self.oauth2helper.check_token_expiration(
-                    toolkit.g.usertoken['access_token']
-                )
-                if is_expired:
-                    log.info('Stored token expired for user %s, attempting refresh', user_name)
-                    new_token = self.oauth2helper.refresh_token(user_name)
-                    if new_token:
-                        toolkit.g.usertoken = new_token
-                        log.info('Stored token refreshed for user %s', user_name)
-                    else:
-                        log.warning('Stored token refresh failed for user %s, logging out', user_name)
-                        toolkit.g.user = None
-                        toolkit.g.userobj = None
-                        toolkit.g.usertoken = None
-                        g.user = None
-                        logout_user()
+            _check_and_refresh_stored_token(user_name)
 
             toolkit.g.usertoken_refresh = partial(_refresh_and_save_token, user_name)
         else:

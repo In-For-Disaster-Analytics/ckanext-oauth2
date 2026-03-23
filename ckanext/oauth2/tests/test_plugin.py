@@ -18,6 +18,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with OAuth2 CKAN Extension.  If not, see <http://www.gnu.org/licenses/>.
 
+import sys
 import pytest
 import ckanext.oauth2.plugin as plugin
 import jwt
@@ -446,3 +447,249 @@ class TestPlugin:
         # Verify identify was called with the Bearer token, not the X-Tapis-Token
         plugin_setup.oauth2helper.identify.assert_called_once_with({'access_token': 'good_token'})
         assert plugin.toolkit.g.user == 'bearer_user'
+
+    # -------------------------------------------------------------------------
+    # Tests for identify() early-return guard (session path, no auth header)
+    # -------------------------------------------------------------------------
+
+    @patch('ckanext.oauth2.plugin.login_user')
+    @patch('ckanext.oauth2.plugin.model')
+    def test_identify_skips_jwt_when_session_only(self, mock_model, mock_login_user, plugin_setup):
+        """Early-return guard fires when session is authenticated and NO auth header present.
+
+        Verifies g.* is populated correctly and oauth2helper.identify is NOT called
+        (no JWT decode happens in the session-only path).
+        """
+        mock_model.User.by_name.return_value = MagicMock()
+        self._set_identity('preauthed_user')
+
+        plugin_setup.oauth2helper.get_stored_token = MagicMock(return_value={'access_token': 'stored_token'})
+        plugin_setup.oauth2helper.jwt_enable = False  # no expiration check
+        plugin_setup.oauth2helper.identify = MagicMock()
+
+        plugin.toolkit.request.headers = {}
+        plugin.toolkit.g.user = None
+        plugin.toolkit.g.usertoken = None
+        plugin.toolkit.g.usertoken_refresh = None
+
+        plugin_setup.identify()
+
+        assert plugin.toolkit.g.user == 'preauthed_user'
+        assert plugin.toolkit.g.usertoken == {'access_token': 'stored_token'}
+        assert plugin.toolkit.g.usertoken_refresh is not None
+        assert callable(plugin.toolkit.g.usertoken_refresh)
+        # Key assertion: no JWT decode happened
+        plugin_setup.oauth2helper.identify.assert_not_called()
+
+    @patch('ckanext.oauth2.plugin.login_user')
+    @patch('ckanext.oauth2.plugin.model')
+    def test_identify_early_return_sets_usertoken_refresh(self, mock_model, mock_login_user, plugin_setup):
+        """g.usertoken_refresh is callable and invokes refresh_token when called."""
+        mock_model.User.by_name.return_value = MagicMock()
+        self._set_identity('preauthed_user')
+
+        plugin_setup.oauth2helper.get_stored_token = MagicMock(return_value={'access_token': 'stored_token'})
+        plugin_setup.oauth2helper.jwt_enable = False
+        plugin_setup.oauth2helper.refresh_token = MagicMock(return_value={'access_token': 'refreshed_token'})
+
+        plugin.toolkit.request.headers = {}
+        plugin.toolkit.g.user = None
+        plugin.toolkit.g.usertoken = None
+        plugin.toolkit.g.usertoken_refresh = None
+
+        plugin_setup.identify()
+
+        assert plugin.toolkit.g.usertoken_refresh is not None
+        plugin.toolkit.g.usertoken_refresh()
+        plugin_setup.oauth2helper.refresh_token.assert_called_once_with('preauthed_user')
+
+    @patch('ckanext.oauth2.plugin.login_user')
+    @patch('ckanext.oauth2.plugin.model')
+    def test_identify_early_return_refreshes_expired_stored_token(self, mock_model, mock_login_user, plugin_setup):
+        """Early-return path refreshes an expired stored token."""
+        mock_model.User.by_name.return_value = MagicMock()
+        self._set_identity('testuser')
+
+        plugin_setup.oauth2helper.jwt_enable = True
+        plugin_setup.oauth2helper.get_stored_token = MagicMock(return_value={'access_token': 'expired_stored'})
+        plugin_setup.oauth2helper.check_token_expiration = MagicMock(return_value=(True, 'testuser'))
+        plugin_setup.oauth2helper.refresh_token = MagicMock(return_value={'access_token': 'new_token'})
+
+        plugin.toolkit.request.headers = {}
+        plugin.toolkit.g.user = None
+        plugin.toolkit.g.usertoken = None
+
+        plugin_setup.identify()
+
+        assert plugin.toolkit.g.usertoken == {'access_token': 'new_token'}
+        plugin_setup.oauth2helper.refresh_token.assert_called_once_with('testuser')
+
+    @patch('ckanext.oauth2.plugin.login_user')
+    @patch('ckanext.oauth2.plugin.logout_user')
+    @patch('ckanext.oauth2.plugin.model')
+    def test_identify_early_return_logout_on_refresh_failure(self, mock_model, mock_logout, mock_login_user, plugin_setup):
+        """Early-return path logs out user when stored token refresh fails."""
+        mock_model.User.by_name.return_value = MagicMock()
+        self._set_identity('testuser')
+
+        plugin_setup.oauth2helper.jwt_enable = True
+        plugin_setup.oauth2helper.get_stored_token = MagicMock(return_value={'access_token': 'expired_stored'})
+        plugin_setup.oauth2helper.check_token_expiration = MagicMock(return_value=(True, 'testuser'))
+        plugin_setup.oauth2helper.refresh_token = MagicMock(return_value=None)
+
+        plugin.toolkit.request.headers = {}
+        plugin.toolkit.g.user = None
+        plugin.toolkit.g.usertoken = None
+
+        plugin_setup.identify()
+
+        assert plugin.toolkit.g.user is None
+        assert plugin.toolkit.g.usertoken is None
+        mock_logout.assert_called_once()
+
+    @patch('ckanext.oauth2.plugin.login_user')
+    @patch('ckanext.oauth2.plugin.model')
+    def test_identify_bearer_token_beats_session_identity(self, mock_model, mock_login_user, plugin_setup):
+        """When bearer token header AND session identity are both present, bearer wins.
+
+        Verifies the early-return guard does NOT fire when apikey is present,
+        so the full JWT validation path runs and bearer token identity prevails.
+        """
+        mock_model.User.by_name.return_value = MagicMock()
+        self._set_identity('session_user')
+
+        mock_bearer_user_obj = MagicMock()
+        plugin_setup.oauth2helper.identify = MagicMock(return_value=('bearer_user', mock_bearer_user_obj))
+        plugin_setup.oauth2helper.get_stored_token = MagicMock(return_value={'access_token': 'tok'})
+        plugin_setup.oauth2helper.check_token_expiration = MagicMock(return_value=(False, None))
+
+        plugin.toolkit.request.headers = {OAUTH2_AUTHORIZATION_HEADER: 'Bearer api_key'}
+        plugin.toolkit.g.user = None
+        plugin.toolkit.g.usertoken = None
+        plugin.toolkit.g.usertoken_refresh = None
+
+        plugin_setup.identify()
+
+        assert plugin.toolkit.g.user == 'bearer_user'  # NOT 'session_user'
+        plugin_setup.oauth2helper.identify.assert_called_once()
+
+    # -------------------------------------------------------------------------
+    # Tests for _install_request_loader()
+    # -------------------------------------------------------------------------
+
+    def test_install_request_loader_registers_callback(self, plugin_setup):
+        """_install_request_loader calls login_manager.request_loader with a callable."""
+        mock_login_manager = MagicMock()
+        registered_callbacks = []
+        mock_login_manager.request_loader = MagicMock(side_effect=lambda f: registered_callbacks.append(f) or f)
+        mock_current_app = MagicMock()
+        mock_current_app.login_manager = mock_login_manager
+
+        mock_get_apitoken = MagicMock(return_value=None)
+
+        with patch('flask.current_app', mock_current_app):
+            with patch('ckan.views._get_user_for_apitoken', mock_get_apitoken):
+                plugin_setup._install_request_loader()
+
+        mock_login_manager.request_loader.assert_called_once()
+        registered_fn = mock_login_manager.request_loader.call_args[0][0]
+        assert callable(registered_fn)
+
+    @patch('ckanext.oauth2.plugin.model')
+    def test_request_loader_returns_user_for_valid_bearer(self, mock_model, plugin_setup):
+        """request_loader callback returns model.User for a valid Bearer token."""
+        mock_user_obj = MagicMock()
+        plugin_setup.oauth2helper.identify = MagicMock(return_value=('testuser', mock_user_obj))
+
+        mock_login_manager = MagicMock()
+        mock_login_manager.request_loader = MagicMock(side_effect=lambda f: f)
+        mock_current_app = MagicMock()
+        mock_current_app.login_manager = mock_login_manager
+
+        mock_get_apitoken = MagicMock(return_value=None)
+
+        with patch('flask.current_app', mock_current_app):
+            with patch('ckan.views._get_user_for_apitoken', mock_get_apitoken):
+                plugin_setup._install_request_loader()
+
+        registered_callback = mock_login_manager.request_loader.call_args[0][0]
+
+        mock_request = MagicMock()
+        mock_request.headers = {plugin_setup.authorization_header: 'Bearer valid_token'}
+
+        result = registered_callback(mock_request)
+
+        assert result == mock_user_obj
+        plugin_setup.oauth2helper.identify.assert_called_once_with({'access_token': 'valid_token'})
+
+    @patch('ckanext.oauth2.plugin.model')
+    def test_request_loader_falls_back_on_identify_exception(self, mock_model, plugin_setup):
+        """request_loader callback falls back to _get_user_for_apitoken (not abort) when identify raises."""
+        plugin_setup.oauth2helper.identify = MagicMock(side_effect=ValueError('Invalid'))
+
+        mock_login_manager = MagicMock()
+        mock_login_manager.request_loader = MagicMock(side_effect=lambda f: f)
+        mock_current_app = MagicMock()
+        mock_current_app.login_manager = mock_login_manager
+
+        mock_get_apitoken = MagicMock(return_value=None)
+
+        with patch('flask.current_app', mock_current_app):
+            with patch('ckan.views._get_user_for_apitoken', mock_get_apitoken):
+                plugin_setup._install_request_loader()
+
+        registered_callback = mock_login_manager.request_loader.call_args[0][0]
+
+        mock_request = MagicMock()
+        mock_request.headers = {plugin_setup.authorization_header: 'Bearer bad_token'}
+
+        result = registered_callback(mock_request)
+
+        assert result is None
+
+    @patch('ckanext.oauth2.plugin.model')
+    def test_request_loader_falls_back_to_apitoken(self, mock_model, plugin_setup):
+        """request_loader callback falls back to _get_user_for_apitoken when no OAuth2 headers."""
+        plugin_setup.oauth2helper.identify = MagicMock()
+
+        mock_login_manager = MagicMock()
+        mock_login_manager.request_loader = MagicMock(side_effect=lambda f: f)
+        mock_current_app = MagicMock()
+        mock_current_app.login_manager = mock_login_manager
+
+        mock_native_user = MagicMock()
+        mock_get_apitoken = MagicMock(return_value=mock_native_user)
+
+        with patch('flask.current_app', mock_current_app):
+            with patch('ckan.views._get_user_for_apitoken', mock_get_apitoken):
+                plugin_setup._install_request_loader()
+
+        registered_callback = mock_login_manager.request_loader.call_args[0][0]
+
+        mock_request = MagicMock()
+        mock_request.headers = {}  # no OAuth2 headers
+
+        result = registered_callback(mock_request)
+
+        assert result == mock_native_user
+        plugin_setup.oauth2helper.identify.assert_not_called()
+        mock_get_apitoken.assert_called_once()
+
+    def test_install_request_loader_logs_error_on_import_failure(self, plugin_setup):
+        """_install_request_loader logs ERROR and raises when _get_user_for_apitoken cannot be imported."""
+        mock_current_app = MagicMock()
+        mock_current_app.login_manager = MagicMock()
+
+        # Make the import of ckan.views._get_user_for_apitoken fail
+        original_modules = sys.modules.copy()
+        sys.modules['ckan.views'] = None  # causes ImportError on `from ckan.views import ...`
+
+        try:
+            with patch('flask.current_app', mock_current_app):
+                with pytest.raises(ImportError):
+                    plugin_setup._install_request_loader()
+        finally:
+            sys.modules.update(original_modules)
+
+        # request_loader_installed must remain False since install failed
+        assert plugin_setup._request_loader_installed is False
