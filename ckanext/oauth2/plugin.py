@@ -92,6 +92,7 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
     plugins.implements(plugins.IMiddleware, inherit=True)
 
     _request_loader_installed = False
+    _request_loader_attempted = False
 
     # IMiddleware
 
@@ -179,10 +180,10 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
                         user_obj = model.User.by_name(user_name)
                     if user_obj is not None:
                         return user_obj
-                except Exception:
-                    # Return None here -- do NOT abort. The X-Tapis-Token 401 abort
-                    # is handled in identify() to preserve Phase 2 behavior.
-                    pass
+                except Exception as e:
+                    # Do NOT abort. The X-Tapis-Token 401 abort is handled
+                    # in identify() to preserve Phase 2 behavior.
+                    log.debug('request_loader: OAuth2 identify failed: %s', e)
 
             # Fall back to CKAN's native API token handling
             return _get_user_for_apitoken()
@@ -194,7 +195,8 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
 
         # Install custom request_loader on first call (login_manager doesn't
         # exist when make_middleware runs, so we register lazily here).
-        if not self._request_loader_installed:
+        if not self._request_loader_installed and not self._request_loader_attempted:
+            self._request_loader_attempted = True
             try:
                 self._install_request_loader()
                 self._request_loader_installed = True
@@ -220,10 +222,35 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
                 g.user = None
                 logout_user()
 
+        def _check_and_refresh_stored_token(user_name):
+            """Check if stored token is expired and refresh if needed.
+
+            Returns True if the user should be logged out (refresh failed).
+            """
+            if toolkit.g.usertoken and toolkit.g.usertoken.get('access_token') and self.oauth2helper.jwt_enable:
+                is_expired, _ = self.oauth2helper.check_token_expiration(
+                    toolkit.g.usertoken['access_token']
+                )
+                if is_expired:
+                    log.info('Stored token expired for user %s, attempting refresh', user_name)
+                    new_token = self.oauth2helper.refresh_token(user_name)
+                    if new_token:
+                        toolkit.g.usertoken = new_token
+                        log.info('Stored token refreshed for user %s', user_name)
+                    else:
+                        log.warning('Stored token refresh failed for user %s, logging out', user_name)
+                        toolkit.g.user = None
+                        toolkit.g.userobj = None
+                        toolkit.g.usertoken = None
+                        g.user = None
+                        logout_user()
+                        return True
+            return False
+
         # Extract apikey BEFORE the early-return guard so that bearer tokens
         # in the request always take precedence over session identity.
-        # This preserves the invariant tested at lines 101-102 and 117-119
-        # of test_plugin.py: bearer token identity beats session identity.
+        # This preserves the invariant tested in
+        # test_identify_bearer_token_beats_session_identity.
         tapis_header_used = False
         apikey = toolkit.request.headers.get(self.authorization_header, '')
 
@@ -253,25 +280,8 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
             # views have current_user set even if request_loader is not installed yet.
             login_user(toolkit.g.userobj)
 
-            # Check stored token expiration for refresh
-            if toolkit.g.usertoken and toolkit.g.usertoken.get('access_token') and self.oauth2helper.jwt_enable:
-                is_expired, _ = self.oauth2helper.check_token_expiration(
-                    toolkit.g.usertoken['access_token']
-                )
-                if is_expired:
-                    log.info('Stored token expired for user %s, attempting refresh', user_name)
-                    new_token = self.oauth2helper.refresh_token(user_name)
-                    if new_token:
-                        toolkit.g.usertoken = new_token
-                        log.info('Stored token refreshed for user %s', user_name)
-                    else:
-                        log.warning('Stored token refresh failed for user %s, logging out', user_name)
-                        toolkit.g.user = None
-                        toolkit.g.userobj = None
-                        toolkit.g.usertoken = None
-                        g.user = None
-                        logout_user()
-                        return
+            if _check_and_refresh_stored_token(user_name):
+                return
             return
 
         user_name = None
@@ -324,24 +334,7 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
             # the authenticated user.
             login_user(toolkit.g.userobj)
 
-            # Check if stored token is expired and refresh if needed
-            if toolkit.g.usertoken and toolkit.g.usertoken.get('access_token') and self.oauth2helper.jwt_enable:
-                is_expired, _ = self.oauth2helper.check_token_expiration(
-                    toolkit.g.usertoken['access_token']
-                )
-                if is_expired:
-                    log.info('Stored token expired for user %s, attempting refresh', user_name)
-                    new_token = self.oauth2helper.refresh_token(user_name)
-                    if new_token:
-                        toolkit.g.usertoken = new_token
-                        log.info('Stored token refreshed for user %s', user_name)
-                    else:
-                        log.warning('Stored token refresh failed for user %s, logging out', user_name)
-                        toolkit.g.user = None
-                        toolkit.g.userobj = None
-                        toolkit.g.usertoken = None
-                        g.user = None
-                        logout_user()
+            _check_and_refresh_stored_token(user_name)
 
             toolkit.g.usertoken_refresh = partial(_refresh_and_save_token, user_name)
         else:

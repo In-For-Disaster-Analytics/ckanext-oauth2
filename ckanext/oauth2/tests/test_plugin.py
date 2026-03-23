@@ -23,7 +23,7 @@ import pytest
 import ckanext.oauth2.plugin as plugin
 import jwt
 
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 CUSTOM_AUTHORIZATION_HEADER = 'x-auth-token'
 OAUTH2_AUTHORIZATION_HEADER = 'authorization'
@@ -623,8 +623,8 @@ class TestPlugin:
         plugin_setup.oauth2helper.identify.assert_called_once_with({'access_token': 'valid_token'})
 
     @patch('ckanext.oauth2.plugin.model')
-    def test_request_loader_returns_none_on_exception(self, mock_model, plugin_setup):
-        """request_loader callback returns None (not abort) when identify raises."""
+    def test_request_loader_falls_back_on_identify_exception(self, mock_model, plugin_setup):
+        """request_loader callback falls back to _get_user_for_apitoken (not abort) when identify raises."""
         plugin_setup.oauth2helper.identify = MagicMock(side_effect=ValueError('Invalid'))
 
         mock_login_manager = MagicMock()
