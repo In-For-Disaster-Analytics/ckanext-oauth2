@@ -2,6 +2,41 @@
 
 <!-- version list -->
 
+## v1.2.0 (2026-03-23)
+
+### Bug Fixes
+
+- Update configuration to enable CKAN app and bump version to 1.1.0
+  ([#22](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/pull/22),
+  [`4dec79c`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/4dec79cdb1b465f7f7052309758bd3fb0c033feb))
+
+- **oauth2**: Fix bearer-token auth for CKAN API authorization
+  ([#22](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/pull/22),
+  [`4dec79c`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/4dec79cdb1b465f7f7052309758bd3fb0c033feb))
+
+- **oauth2**: Resolve RecursionError from LocalProxy in early-return guard
+  ([#22](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/pull/22),
+  [`4dec79c`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/4dec79cdb1b465f7f7052309758bd3fb0c033feb))
+
+### Features
+
+- **03-01**: Register Flask-Login request_loader and add early-return guard in identify()
+  ([#22](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/pull/22),
+  [`4dec79c`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/4dec79cdb1b465f7f7052309758bd3fb0c033feb))
+
+### Refactoring
+
+- **oauth2**: Address code review findings in identify()
+  ([#22](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/pull/22),
+  [`4dec79c`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/4dec79cdb1b465f7f7052309758bd3fb0c033feb))
+
+### Testing
+
+- **03-01**: Add tests for request_loader and identify() early-return guard
+  ([#22](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/pull/22),
+  [`4dec79c`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/4dec79cdb1b465f7f7052309758bd3fb0c033feb))
+
+
 ## v1.1.0 (2026-03-21)
 
 ### Bug Fixes
