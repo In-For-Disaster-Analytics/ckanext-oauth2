@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.2.1 (2026-03-24)
+
+### Bug Fixes
+
+- **oauth2**: Improve JWT error logging to distinguish failure types
+  ([#23](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/pull/23),
+  [`223d07e`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/223d07e8cbcb473ca0d94ba015eed6b278581377))
+
+
 ## v1.2.0 (2026-03-23)
 
 ### Bug Fixes
