@@ -414,9 +414,13 @@ class OAuth2Helper(object):
             else:
                 return jwt.decode(token, options={"verify_signature": False, "verify_exp": False})
         except jwt.ExpiredSignatureError:
+            log.warning('JWT token expired (exp claim is in the past according to server clock)')
+            raise
+        except jwt.InvalidSignatureError as e:
+            log.error('JWT signature verification failed (wrong public key or token tampered): %s', e)
             raise
         except (jwt.DecodeError, jwt.InvalidTokenError) as e:
-            log.error('JWT decode error: %s', str(e))
+            log.error('JWT decode error (%s): %s', type(e).__name__, e)
             raise
 
     def check_token_expiration(self, access_token):
