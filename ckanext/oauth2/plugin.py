@@ -336,7 +336,11 @@ class OAuth2Plugin(_OAuth2Plugin, plugins.SingletonPlugin):
             # the authenticated user.
             login_user(toolkit.g.userobj)
 
-            _check_and_refresh_stored_token(user_name)
+            # Only check stored token expiration for session-based auth.
+            # When a bearer token was just validated, the stored token
+            # may be stale; checking it would incorrectly log the user out.
+            if not apikey:
+                _check_and_refresh_stored_token(user_name)
 
             toolkit.g.usertoken_refresh = partial(_refresh_and_save_token, user_name)
         else:

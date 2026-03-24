@@ -573,6 +573,37 @@ class TestPlugin:
         assert plugin.toolkit.g.user == 'bearer_user'  # NOT 'session_user'
         plugin_setup.oauth2helper.identify.assert_called_once()
 
+    @patch('ckanext.oauth2.plugin.login_user')
+    @patch('ckanext.oauth2.plugin.model')
+    def test_identify_bearer_token_not_invalidated_by_stale_stored_token(self, mock_model, mock_login_user, plugin_setup):
+        """Bearer token auth must not be undone by an expired stored token.
+
+        When a valid bearer token authenticates the user, the stored token
+        expiration check should be skipped. Otherwise a stale stored token
+        causes the user to be logged out despite sending a valid fresh token.
+        """
+        mock_model.User.by_name.return_value = MagicMock()
+
+        mock_user_obj = MagicMock()
+        plugin_setup.oauth2helper.identify = MagicMock(return_value=('wmobley', mock_user_obj))
+        plugin_setup.oauth2helper.jwt_enable = True
+        # Stored token is expired, refresh would fail
+        plugin_setup.oauth2helper.get_stored_token = MagicMock(return_value={'access_token': 'old_expired_token'})
+        plugin_setup.oauth2helper.check_token_expiration = MagicMock(return_value=(True, 'wmobley'))
+        plugin_setup.oauth2helper.refresh_token = MagicMock(return_value=None)
+
+        plugin.toolkit.request.headers = {'X-Tapis-Token': 'fresh_valid_token'}
+        plugin.toolkit.g.user = None
+        plugin.toolkit.g.usertoken = None
+        plugin.toolkit.g.usertoken_refresh = None
+
+        plugin_setup.identify()
+
+        # User must remain authenticated despite stale stored token
+        assert plugin.toolkit.g.user == 'wmobley'
+        # check_token_expiration should NOT have been called (skipped for bearer auth)
+        plugin_setup.oauth2helper.check_token_expiration.assert_not_called()
+
     # -------------------------------------------------------------------------
     # Tests for _install_request_loader()
     # -------------------------------------------------------------------------
