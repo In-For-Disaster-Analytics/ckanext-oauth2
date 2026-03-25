@@ -2,6 +2,23 @@
 
 <!-- version list -->
 
+## v1.2.2 (2026-03-25)
+
+### Bug Fixes
+
+- **oauth2**: Improve JWT error logging to distinguish failure types
+  ([#24](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/pull/24),
+  [`bf95409`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/bf95409073471b13a242996a3d5eda6e93ca198b))
+
+- **oauth2**: Prevent stale stored token from invalidating bearer auth
+  ([#24](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/pull/24),
+  [`bf95409`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/bf95409073471b13a242996a3d5eda6e93ca198b))
+
+- **oauth2**: Skip stored token expiration check for bearer token auth
+  ([#24](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/pull/24),
+  [`bf95409`](https://github.com/In-For-Disaster-Analytics/ckanext-oauth2/commit/bf95409073471b13a242996a3d5eda6e93ca198b))
+
+
 ## v1.2.1 (2026-03-24)
 
 ### Bug Fixes
