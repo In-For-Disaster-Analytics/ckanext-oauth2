@@ -205,7 +205,7 @@ class OAuth2Helper(object):
     def query_profile_api_default(self, token):
         try:
             headers = {
-                'X-Tapis-Token': token['access_token']
+                'Authorization': 'Bearer %s' % token['access_token']
             }
             profile_response = requests.get(self.profile_api_url, headers=headers, verify=self.verify_https)
             if not profile_response.ok:
